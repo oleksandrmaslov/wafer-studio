@@ -132,7 +132,7 @@ export const Download = () => {
                 <a
                   key={link.name}
                   href={getUrlFromPattern(ReleaseAssets, link.urlPattern)}
-                  className="p-3 text-lg bg-primary hover:opacity-85 active:opacity-70 text-primary-content rounded-lg justify-center items-center gap-3 flex"
+                  className="p-3 text-lg wafer-metal hover:opacity-85 active:opacity-70 rounded-lg justify-center items-center gap-3 flex"
                 >
                   <FontAwesomeIcon
                     icon={PlatformMetadata[platform].icon}
@@ -148,7 +148,7 @@ export const Download = () => {
           {PlatformLinks[platform].length > 0 && (
             <button
               onClick={() => setShowAll(!showAll)}
-              className="text-primary text-left hover:underline"
+              className="text-ink text-left underline decoration-line-strong underline-offset-2"
             >
               {showAll ? "Hide" : "Show"} all downloads
             </button>

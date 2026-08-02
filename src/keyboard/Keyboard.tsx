@@ -944,9 +944,11 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           )}
         </div>
 
+        {/* The canvas catches the application's shared light rather than a
+            fixed white glow, which was a bright blob in dark mode. */}
         <section
           aria-label="Keyboard layout"
-          className="relative grid min-h-0 min-w-0 place-items-center overflow-auto bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.64),transparent_62%)] p-4 md:p-8"
+          className="wafer-substrate relative grid min-h-0 min-w-0 place-items-center overflow-auto p-4 md:p-8"
         >
           {layouts && keymap && behaviors ? (
             <KeymapComp
@@ -960,7 +962,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
             />
           ) : (
             <div className="grid max-w-sm place-items-center gap-3 rounded-2xl border border-line bg-base-200/75 p-8 text-center shadow-sm">
-              <div className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+              <div className="grid size-11 place-items-center rounded-xl bg-selected text-ink">
                 <Cable aria-hidden="true" className="size-5" />
               </div>
               <div>

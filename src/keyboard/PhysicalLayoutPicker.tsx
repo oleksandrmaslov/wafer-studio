@@ -74,7 +74,7 @@ export const PhysicalLayoutPicker = ({
             <ListBoxItem
               id={l.name}
               textValue={l.name}
-              className="cursor-pointer rounded-lg p-2 outline-none hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:bg-primary/10 rac-selected:text-primary"
+              className="cursor-pointer rounded-lg p-2 outline-none hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:bg-selected rac-selected:text-ink"
             >
               <Text slot="label" className="text-sm font-semibold">
                 {l.name}

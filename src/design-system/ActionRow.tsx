@@ -24,7 +24,7 @@ export function ActionRow({
       data-selected={selected}
       disabled={disabled}
       onClick={onPress}
-      className="wafer-action-row"
+      className="wafer-action-row wafer-metal-edge"
     >
       <span className="wafer-action-row__icon">
         <Icon aria-hidden="true" className="size-4" />

@@ -640,7 +640,7 @@ export const BehaviorBindingPicker = ({
               type="button"
               disabled={!editorIsValid || isDisabled}
               onClick={assignEditor}
-              className="mt-5 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-content outline-none transition hover:bg-wafer-deep disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
+              className="mt-5 min-h-11 w-full rounded-xl wafer-metal px-4 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
             >
               {editorIsValid ? "Assign to key" : "Finish required choices"}
             </button>

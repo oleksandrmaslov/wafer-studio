@@ -37,6 +37,7 @@ export default {
         line: "rgb(var(--line-default) / <alpha-value>)",
         "line-strong": "rgb(var(--line-strong) / <alpha-value>)",
         wafer: "rgb(var(--wafer-primary) / <alpha-value>)",
+        "wafer-hover": "rgb(var(--wafer-primary-hover) / <alpha-value>)",
         "wafer-deep": "rgb(var(--wafer-deep) / <alpha-value>)",
         "accent-foreground": "rgb(var(--accent-foreground) / <alpha-value>)",
         success: "rgb(var(--status-success) / <alpha-value>)",

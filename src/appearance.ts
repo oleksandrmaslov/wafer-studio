@@ -1,20 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 
+/**
+ * Not three visual systems — one material at three amplitudes.
+ *
+ * Every level disperses, because dispersion is the base of the design system
+ * rather than a decoration layered on top of it. What changes between them is
+ * how loudly: `--dispersion-gain` and `--specular-gain` scale the whole field,
+ * and the shader presets of the same name move in step.
+ */
 export const WAFER_FINISHES = [
   {
     id: "precision",
     label: "Precision",
-    description: "Flat, quiet, and closest to Input.",
+    description: "Lowest amplitude. Colour only where the surface truly turns.",
   },
   {
     id: "alloy",
     label: "Alloy",
-    description: "Soft metallic light across the same controls.",
+    description: "The reference material. Balanced metal and spectrum.",
   },
   {
     id: "prism",
     label: "Prism",
-    description: "A restrained chromatic edge for selection.",
+    description: "Full spectral response across every live edge.",
   },
 ] as const;
 

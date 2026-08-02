@@ -186,7 +186,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
     >
       <div className="flex items-start justify-between gap-6 border-b border-line pb-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             Wafer Studio
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">

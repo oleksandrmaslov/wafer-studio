@@ -127,7 +127,7 @@ export const AppHeader = ({
   };
 
   return (
-    <header className="relative z-20 flex min-h-16 max-w-full items-center gap-2 border-b border-line bg-base-200 px-3 shadow-[0_1px_0_rgba(23,24,21,0.02)] sm:gap-3 sm:px-4">
+    <header className="relative z-20 flex min-h-16 max-w-full items-center gap-2 border-b border-line bg-base-200 px-3 shadow-[0_1px_0_rgb(var(--metal-shadow)/0.06)] sm:gap-3 sm:px-4">
       <WaferMark className="min-w-fit" compact />
       <GenericModal
         ref={showSettingsRef}
@@ -166,7 +166,7 @@ export const AppHeader = ({
         className="max-h-[min(44rem,calc(100dvh-2rem))] w-[min(42rem,calc(100vw-2rem))] flex-col overflow-hidden open:flex"
       >
         <div className="border-b border-line px-5 py-4">
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-primary">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted">
             Local draft
           </p>
           <h2 className="mt-1 text-lg font-semibold">
@@ -230,7 +230,7 @@ export const AppHeader = ({
                       →
                     </span>
                     <span
-                      className="truncate font-semibold text-primary"
+                      className="truncate font-semibold text-muted"
                       title={change.afterLabel}
                     >
                       {change.afterLabel}
@@ -251,7 +251,7 @@ export const AppHeader = ({
               Keep testing
             </Button>
             <Button
-              className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-content outline-none hover:bg-wafer-deep rac-focus-visible:ring-2 rac-focus-visible:ring-focus"
+              className="min-h-11 rounded-xl wafer-metal px-4 text-sm font-semibold outline-none rac-focus-visible:ring-2 rac-focus-visible:ring-focus"
               onPress={savePermanently}
               isDisabled={!applyResult.deviceUnsaved}
             >
@@ -268,7 +268,7 @@ export const AppHeader = ({
               Cancel
             </Button>
             <Button
-              className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-content outline-none hover:bg-wafer-deep rac-disabled:cursor-not-allowed rac-disabled:bg-base-300 rac-disabled:text-base-content/40 rac-focus-visible:ring-2 rac-focus-visible:ring-focus"
+              className="min-h-11 rounded-xl wafer-metal px-4 text-sm font-semibold outline-none rac-disabled:cursor-not-allowed rac-disabled:bg-base-300 rac-disabled:text-base-content/40 rac-focus-visible:ring-2 rac-focus-visible:ring-focus"
               onPress={startApply}
               isDisabled={
                 applying ||
@@ -363,7 +363,7 @@ export const AppHeader = ({
 
       <div className="ml-auto hidden min-w-0 items-center gap-2 lg:flex">
         {hasDraft ? (
-          <div className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+          <div className="rounded-full border border-line bg-selected px-3 py-1.5 text-xs font-semibold text-ink">
             Draft · {draftCount} {draftCount === 1 ? "change" : "changes"}
           </div>
         ) : unsaved === undefined ? (
@@ -424,7 +424,7 @@ export const AppHeader = ({
           label={hasDraft ? "Review and apply draft" : "Save permanently"}
         >
           <Button
-            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-content shadow-[inset_0_-2px_0_rgba(158,50,31,0.35)] outline-none transition hover:bg-wafer-deep rac-disabled:cursor-not-allowed rac-disabled:bg-base-300 rac-disabled:text-base-content/35 rac-disabled:shadow-none rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-focus-visible:ring-offset-2 sm:px-4"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl wafer-metal px-3 text-sm font-semibold shadow-[inset_0_-2px_0_rgb(var(--wafer-deep)/0.35)] outline-none transition rac-disabled:cursor-not-allowed rac-disabled:bg-base-300 rac-disabled:text-base-content/35 rac-disabled:shadow-none rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-focus-visible:ring-offset-2 sm:px-4"
             onPress={() => {
               if (hasDraft) {
                 setApplyResult(undefined);

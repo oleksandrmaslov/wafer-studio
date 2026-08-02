@@ -1,3 +1,6 @@
+@import "./design-system/tokens.css";
+@import "./design-system/metal.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,138 +10,6 @@
     font-family: "Inter";
     src: url("/Inter.woff2") format("woff2");
     font-display: swap;
-  }
-
-  :root {
-    /* Wafer's warm industrial light palette. RGB channels preserve Tailwind
-       opacity modifiers such as bg-primary/10. */
-    --surface-canvas: 243 240 232; /* #F3F0E8 */
-    --surface-panel: 252 250 244; /* #FCFAF4 */
-    --surface-raised: 255 255 255; /* #FFFFFF */
-    --surface-hover: 247 244 236; /* #F7F4EC */
-    --surface-selected: 255 238 231; /* #FFEEE7 */
-    --surface-overlay: 255 253 248; /* #FFFDF8 */
-    --ink-primary: 23 24 21; /* #171815 */
-    --ink-secondary: 93 96 89; /* #5D6059 */
-    --ink-tertiary: 123 125 117; /* #7B7D75 */
-    --line-subtle: 231 227 218; /* #E7E3DA */
-    --line-default: 219 215 205; /* #DBD7CD */
-    --line-strong: 179 174 162; /* #B3AEA2 */
-    --wafer-primary: 255 106 61; /* #FF6A3D */
-    --wafer-deep: 158 50 31; /* #9E321F */
-    --accent-foreground: 137 43 27; /* #892B1B */
-    --status-success: 46 125 91; /* #2E7D5B */
-    --status-warning: 168 100 19; /* #A86413 */
-    --status-danger: 184 58 54; /* #B83A36 */
-    --focus-ring: 21 94 239; /* #155EEF */
-    --primary-content: 23 24 21;
-    --metal-highlight: 255 255 255;
-    --metal-lowlight: 94 99 103;
-    --spectral-cyan: 89 210 255;
-    --spectral-violet: 166 118 255;
-    --spectral-coral: 255 106 61;
-    --control-height: 2.5rem;
-    --radius-control: 0.625rem;
-    --radius-surface: 0.75rem;
-    --radius-panel: 0.875rem;
-    --panel-padding: 0.75rem;
-    --group-gap: 0.75rem;
-    --motion-fast: 120ms;
-    --motion-base: 170ms;
-    --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-    --finish-panel-background: rgb(var(--surface-panel));
-    --finish-raised-background: rgb(var(--surface-raised));
-    --finish-panel-shadow: none;
-    --finish-selection-edge: linear-gradient(
-      rgb(var(--wafer-primary)),
-      rgb(var(--wafer-primary))
-    );
-    --key-selection-border: 158 50 31;
-    --key-shadow: 0 2px 0 rgb(var(--line-default)),
-      0 5px 14px rgb(var(--ink-primary) / 0.09);
-    --key-shadow-hover: 0 3px 0 rgb(var(--line-default)),
-      0 8px 18px rgb(var(--ink-primary) / 0.13);
-    --key-shadow-pressed: inset 0 2px 3px rgb(var(--ink-primary) / 0.16);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      /* The dark palette keeps the same warm hue while lifting foregrounds
-         enough for legible boundaries and status colors. */
-      --surface-canvas: 23 24 20; /* #171814 */
-      --surface-panel: 31 32 27; /* #1F201B */
-      --surface-raised: 36 37 32; /* #242520 */
-      --surface-hover: 42 43 37; /* #2A2B25 */
-      --surface-selected: 53 39 31; /* #35271F */
-      --surface-overlay: 38 39 34; /* #262722 */
-      --ink-primary: 245 240 230; /* #F5F0E6 */
-      --ink-secondary: 187 182 170; /* #BBB6AA */
-      --ink-tertiary: 148 145 136; /* #949188 */
-      --line-subtle: 45 47 41; /* #2D2F29 */
-      --line-default: 57 59 52; /* #393B34 */
-      --line-strong: 86 88 78; /* #56584E */
-      --wafer-primary: 255 129 92; /* #FF815C */
-      --wafer-deep: 201 78 44; /* #C94E2C */
-      --accent-foreground: 255 158 127; /* #FF9E7F */
-      --status-success: 100 181 141; /* #64B58D */
-      --status-warning: 225 163 76; /* #E1A34C */
-      --status-danger: 237 107 102; /* #ED6B66 */
-      --focus-ring: 120 168 255; /* #78A8FF */
-      --primary-content: 23 24 21;
-      --metal-highlight: 241 246 248;
-      --metal-lowlight: 6 8 10;
-      --spectral-cyan: 77 218 255;
-      --spectral-violet: 170 125 255;
-      --spectral-coral: 255 129 92;
-      --key-selection-border: 255 129 92;
-      --key-shadow: 0 2px 0 rgb(10 11 8), 0 6px 16px rgb(0 0 0 / 0.34);
-      --key-shadow-hover: 0 3px 0 rgb(10 11 8), 0 9px 20px rgb(0 0 0 / 0.42);
-      --key-shadow-pressed: inset 0 2px 4px rgb(0 0 0 / 0.48);
-    }
-  }
-
-  :root[data-wafer-finish="alloy"] {
-    --finish-panel-background: linear-gradient(
-        112deg,
-        rgb(var(--metal-highlight) / 0.055),
-        transparent 22%,
-        rgb(var(--metal-lowlight) / 0.035) 68%,
-        rgb(var(--metal-highlight) / 0.035)
-      ),
-      rgb(var(--surface-panel));
-    --finish-raised-background: linear-gradient(
-        105deg,
-        rgb(var(--metal-highlight) / 0.075),
-        transparent 42%,
-        rgb(var(--metal-lowlight) / 0.035)
-      ),
-      rgb(var(--surface-raised));
-    --finish-panel-shadow: inset 0 1px rgb(var(--metal-highlight) / 0.08);
-  }
-
-  :root[data-wafer-finish="prism"] {
-    --finish-panel-background: linear-gradient(
-        112deg,
-        rgb(var(--metal-highlight) / 0.045),
-        transparent 28%,
-        rgb(var(--metal-lowlight) / 0.03) 72%,
-        rgb(var(--metal-highlight) / 0.03)
-      ),
-      rgb(var(--surface-panel));
-    --finish-raised-background: linear-gradient(
-        105deg,
-        rgb(var(--metal-highlight) / 0.06),
-        transparent 48%,
-        rgb(var(--metal-lowlight) / 0.03)
-      ),
-      rgb(var(--surface-raised));
-    --finish-panel-shadow: inset 0 1px rgb(var(--metal-highlight) / 0.07);
-    --finish-selection-edge: linear-gradient(
-      118deg,
-      rgb(var(--spectral-cyan)),
-      rgb(var(--spectral-violet)) 52%,
-      rgb(var(--spectral-coral))
-    );
   }
 
   html {
@@ -165,13 +36,15 @@
     font: inherit;
   }
 
+  /* Focus is never dispersive. It is the one signal that must survive every
+     finish, every colour scheme, and every shader parameter. */
   :focus-visible {
     outline: 3px solid rgb(var(--focus-ring));
     outline-offset: 2px;
   }
 
   ::selection {
-    background: rgb(var(--wafer-primary) / 0.28);
+    background: rgb(var(--ink-primary) / 0.2);
     color: rgb(var(--ink-primary));
   }
 }
@@ -182,11 +55,15 @@
 }
 
 @layer components {
+  /* ---- Surfaces ---------------------------------------------------------- */
   .wafer-finish-panel {
-    background: var(--finish-panel-background);
-    box-shadow: var(--finish-panel-shadow);
+    background-color: rgb(var(--surface-panel));
+    box-shadow: var(--elevation-panel);
   }
 
+  /* ---- Segmented control -------------------------------------------------
+     A quiet shared track. The selected item is identified by tint and weight;
+     the dispersive edge only confirms what colour and contrast already say. */
   .wafer-segmented {
     display: grid;
     grid-auto-columns: minmax(0, 1fr);
@@ -198,6 +75,7 @@
   }
 
   .wafer-segmented__item {
+    position: relative;
     min-height: 2.25rem;
     border-radius: calc(var(--radius-control) - 0.1875rem);
     color: rgb(var(--ink-secondary));
@@ -206,8 +84,7 @@
     outline: none;
     transition:
       color var(--motion-fast) var(--motion-ease),
-      background-color var(--motion-fast) var(--motion-ease),
-      box-shadow var(--motion-fast) var(--motion-ease);
+      background-color var(--motion-fast) var(--motion-ease);
   }
 
   .wafer-segmented__item:hover:not(:disabled) {
@@ -215,13 +92,14 @@
   }
 
   .wafer-segmented__item[aria-pressed="true"] {
-    background: rgb(var(--surface-raised) / 0.88);
-    color: rgb(var(--accent-foreground));
-    box-shadow: 0 1px 0 rgb(var(--line-subtle));
+    background-color: #cfd6dc;
+    background-image: var(--metal-ramp-bright);
+    color: rgb(var(--metal-ink));
   }
 
   .wafer-segmented__item:focus-visible {
-    box-shadow: 0 0 0 2px rgb(var(--focus-ring));
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: -1px;
   }
 
   .wafer-segmented__item:disabled {
@@ -229,6 +107,7 @@
     opacity: 0.38;
   }
 
+  /* ---- Search field ------------------------------------------------------- */
   .wafer-search-field {
     display: flex;
     min-height: var(--control-height);
@@ -241,8 +120,7 @@
     color: rgb(var(--ink-tertiary));
     transition:
       border-color var(--motion-fast) var(--motion-ease),
-      background-color var(--motion-fast) var(--motion-ease),
-      box-shadow var(--motion-fast) var(--motion-ease);
+      background-color var(--motion-fast) var(--motion-ease);
   }
 
   .wafer-search-field:hover {
@@ -252,11 +130,12 @@
   .wafer-search-field:focus-within {
     border-color: rgb(var(--focus-ring) / 0.72);
     background: rgb(var(--surface-raised) / 0.76);
-    box-shadow: 0 0 0 2px rgb(var(--focus-ring) / 0.14);
   }
 
+  /* ---- Action row ---------------------------------------------------------
+     52–60px, icon + name + one description. Selection is carried by tint and
+     accent foreground; the edge is the confirmation, never the message. */
   .wafer-action-row {
-    position: relative;
     display: grid;
     min-height: 3.5rem;
     width: 100%;
@@ -275,38 +154,20 @@
       color var(--motion-fast) var(--motion-ease);
   }
 
-  .wafer-action-row::after {
-    position: absolute;
-    inset: -1px;
-    padding: 1px;
-    border-radius: inherit;
-    background: var(--finish-selection-edge);
-    content: "";
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--motion-fast) var(--motion-ease);
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-
-  .wafer-action-row:hover:not(:disabled) {
-    background: rgb(var(--surface-hover) / 0.82);
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-action-row:hover:not(:disabled) {
+      background: rgb(var(--surface-hover) / 0.82);
+    }
   }
 
   .wafer-action-row[data-selected="true"] {
-    background: rgb(var(--surface-selected) / 0.72);
-    color: rgb(var(--accent-foreground));
-  }
-
-  .wafer-action-row[data-selected="true"]::after {
-    opacity: 0.88;
+    background: rgb(var(--surface-selected) / 0.9);
+    color: rgb(var(--ink-primary));
   }
 
   .wafer-action-row:focus-visible {
-    box-shadow: 0 0 0 2px rgb(var(--focus-ring));
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: -1px;
   }
 
   .wafer-action-row:disabled {
@@ -325,10 +186,12 @@
   }
 
   .wafer-action-row[data-selected="true"] .wafer-action-row__icon {
-    background: rgb(var(--wafer-primary) / 0.11);
-    color: rgb(var(--accent-foreground));
+    background-color: #cfd6dc;
+    background-image: var(--metal-ramp-bright);
+    color: rgb(var(--metal-ink));
   }
 
+  /* ---- Category strip ------------------------------------------------------ */
   .wafer-category-strip {
     display: flex;
     gap: 0.25rem;
@@ -355,23 +218,172 @@
       background-color var(--motion-fast) var(--motion-ease);
   }
 
-  .wafer-category-chip:hover:not(:disabled) {
-    background: rgb(var(--surface-hover));
-    color: rgb(var(--ink-primary));
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-category-chip:hover:not(:disabled) {
+      background: rgb(var(--surface-hover));
+      color: rgb(var(--ink-primary));
+    }
   }
 
   .wafer-category-chip[aria-pressed="true"] {
-    background: rgb(var(--surface-selected));
-    color: rgb(var(--accent-foreground));
+    background-color: #cfd6dc;
+    background-image: var(--metal-ramp-bright);
+    color: rgb(var(--metal-ink));
   }
 
   .wafer-category-chip:focus-visible {
-    box-shadow: 0 0 0 2px rgb(var(--focus-ring));
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 1px;
   }
 
+  /* ---- Button --------------------------------------------------------------
+     One quiet control. Primary intent is carried by `data-intent="primary"`,
+     not by a second component. */
+  .wafer-button {
+    display: inline-flex;
+    min-height: var(--control-height-compact);
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 1px solid rgb(var(--line-subtle));
+    border-radius: var(--radius-control);
+    padding: 0 0.75rem;
+    background: rgb(var(--surface-raised) / 0.6);
+    color: rgb(var(--ink-secondary));
+    font-size: 0.75rem;
+    font-weight: 650;
+    outline: none;
+    transition:
+      background-color var(--motion-fast) var(--motion-ease),
+      border-color var(--motion-fast) var(--motion-ease),
+      color var(--motion-fast) var(--motion-ease),
+      transform var(--motion-fast) var(--motion-ease);
+  }
+
+  /* Hover is gated: on touch, a tap fires :hover and leaves the control stuck
+     in a hovered state until the next tap elsewhere. */
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-button:hover:not(:disabled) {
+      border-color: rgb(var(--line-default));
+      background: rgb(var(--surface-hover));
+      color: rgb(var(--ink-primary));
+    }
+  }
+
+  /* Press feedback. The control has to acknowledge that it heard you. */
+  .wafer-button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .wafer-button[data-intent="primary"] {
+    border-color: transparent;
+    background-color: #cfd6dc;
+    background-image: var(--metal-ramp-bright);
+    color: rgb(var(--metal-ink));
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-button[data-intent="primary"]:hover:not(:disabled) {
+      /* Shifting the ramp is the hover, so the surface moves like metal
+         instead of stepping to a second colour. */
+      --metal-repeat: 40%;
+      color: rgb(var(--metal-ink));
+    }
+  }
+
+  .wafer-button:focus-visible {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+  }
+
+  .wafer-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+
+  /* ---- Slider ---------------------------------------------------------------
+     The filled portion of the track is a window onto the shared spectrum field,
+     so a row of sliders reads as one continuous material rather than as
+     fourteen independent widgets. */
+  .wafer-slider {
+    width: 100%;
+    height: 1rem;
+    padding: 0;
+    background: transparent;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .wafer-slider::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 999px;
+    background-color: rgb(var(--surface-canvas));
+    /* The filled portion is a window onto the shared spectrum; the remainder is
+       masked back to the track colour. Filled reads as energised, and a row of
+       sliders reads as one continuous material. */
+    background-image: linear-gradient(
+        90deg,
+        transparent var(--progress, 0%),
+        rgb(var(--surface-canvas)) var(--progress, 0%)
+      ),
+      var(--wafer-spectrum-field);
+    background-attachment: scroll, fixed;
+  }
+
+  .wafer-slider::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 999px;
+    background-color: rgb(var(--surface-canvas));
+    /* The filled portion is a window onto the shared spectrum; the remainder is
+       masked back to the track colour. Filled reads as energised, and a row of
+       sliders reads as one continuous material. */
+    background-image: linear-gradient(
+        90deg,
+        transparent var(--progress, 0%),
+        rgb(var(--surface-canvas)) var(--progress, 0%)
+      ),
+      var(--wafer-spectrum-field);
+    background-attachment: scroll, fixed;
+  }
+
+  .wafer-slider::-webkit-slider-thumb {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-top: -0.3125rem;
+    border: 1px solid rgb(var(--line-strong));
+    border-radius: 999px;
+    background: rgb(var(--surface-raised));
+    box-shadow: var(--elevation-panel);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .wafer-slider::-moz-range-thumb {
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 1px solid rgb(var(--line-strong));
+    border-radius: 999px;
+    background: rgb(var(--surface-raised));
+    box-shadow: var(--elevation-panel);
+  }
+
+  .wafer-slider:focus-visible::-webkit-slider-thumb {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 1px;
+  }
+
+  .wafer-slider:focus-visible::-moz-range-thumb {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 1px;
+  }
+
+  /* ---- Key ----------------------------------------------------------------
+     The physical object in the interface, and the only place a literal shadow
+     is allowed — a key really is a raised thing. */
   .wafer-key {
     border: 1px solid rgb(var(--line-default));
-    border-radius: 0.55rem;
+    border-radius: var(--radius-key);
     background: rgb(var(--surface-raised));
     color: rgb(var(--ink-primary));
     box-shadow: var(--key-shadow);
@@ -382,11 +394,13 @@
       background-color 140ms ease;
   }
 
-  .wafer-key[data-interactive="true"]:hover {
-    z-index: 1;
-    transform: translateY(-1px);
-    border-color: rgb(var(--wafer-primary) / 0.72);
-    box-shadow: var(--key-shadow-hover);
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-key[data-interactive="true"]:hover {
+      z-index: 1;
+      transform: translateY(-1px);
+      border-color: rgb(var(--line-strong));
+      box-shadow: var(--key-shadow-hover);
+    }
   }
 
   .wafer-key[data-interactive="true"]:active {
@@ -395,21 +409,28 @@
   }
 
   .wafer-key[data-selected="true"] {
-    border-color: rgb(var(--key-selection-border));
-    box-shadow:
-      0 0 0 2px rgb(var(--key-selection-border)),
-      var(--key-shadow);
+    position: relative;
+    border-color: transparent;
+    box-shadow: var(--key-shadow);
   }
 
+  /* Selection is a ring of the material, cut to the key's own radius. */
   .wafer-key[data-selected="true"]::after {
     position: absolute;
-    top: -1px;
-    right: -1px;
-    width: 0.75rem;
-    height: 0.75rem;
-    border-bottom-left-radius: 0.45rem;
-    background: rgb(var(--wafer-primary));
+    inset: -2px;
+    padding: 2px;
+    border-radius: calc(var(--radius-key) + 1px);
+    background-image: var(--metal-ramp);
     content: "";
+    pointer-events: none;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
   }
 
   .wafer-key:focus-visible {
@@ -418,6 +439,9 @@
   }
 }
 
+/* Reduced motion means less movement, not no feedback. Opacity and colour
+   transitions carry meaning (what is selected, what responded to a press), so
+   they stay. Movement, and anything that loops, does not. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -425,6 +449,14 @@
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: opacity, background-color, border-color, color,
+      box-shadow !important;
+    transition-duration: 120ms !important;
+  }
+
+  .wafer-button:active:not(:disabled),
+  .wafer-key[data-interactive="true"]:hover,
+  .wafer-key[data-interactive="true"]:active {
+    transform: none;
   }
 }

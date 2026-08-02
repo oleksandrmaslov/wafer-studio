@@ -38,7 +38,7 @@ export function VisualHidUsagePicker({
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
-        className="flex min-h-12 items-center gap-3 rounded-xl border border-line bg-raised px-3 text-left outline-none transition hover:border-primary/50 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-focus"
+        className="flex min-h-12 items-center gap-3 rounded-xl border border-line bg-raised px-3 text-left outline-none transition hover:border-line-strong hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus"
       >
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-base-300 text-base-content/60">
           <Keyboard aria-hidden="true" className="size-4" />
@@ -91,7 +91,7 @@ export function VisualHidUsagePicker({
             type="button"
             disabled={value === undefined}
             onClick={() => setExpanded(false)}
-            className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-content outline-none transition hover:bg-wafer-deep disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
+            className="min-h-11 rounded-xl wafer-metal px-4 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
           >
             Done
           </button>

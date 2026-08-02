@@ -1,0 +1,221 @@
+/*
+ * Chromatic metal, as CSS.
+ *
+ * The shader is the reference implementation, but a canvas per control would be
+ * absurd for chips and rows. These ramps are the same material expressed as a
+ * gradient: identical profile (bright, into a hard dark band, back to bright)
+ * with the RGB-split fringes baked in as stops, cool on the entering wall and
+ * warm on the leaving one.
+ *
+ * Two ramps, because contrast is not negotiable:
+ *
+ *   --metal-ramp         full range. Decorative fills, edges, marks.
+ *   --metal-ramp-bright  floor lifted to #8F9AA4. Anything carrying text, so
+ *                        near-black ink always clears AA against the darkest
+ *                        band (6.8:1) rather than only against the average.
+ *
+ * This replaces the flat accent entirely. The product has no orange fill left;
+ * what used to be "the accent colour" is now "the material".
+ */
+
+@property --light-x {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.28;
+}
+
+@property --light-y {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.06;
+}
+
+@property --metal-strength {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@layer base {
+  :root {
+    --light-x: 0.28;
+    --light-y: 0.06;
+
+    /* The bands rotate with the shared light, so a pointer sweep moves the
+       reflection across every metal surface at once. */
+    --metal-angle: calc(116deg + (var(--light-x) - 0.5) * 90deg);
+    --metal-repeat: 46%;
+
+    --metal-ramp: repeating-linear-gradient(
+      var(--metal-angle),
+      #ffffff 0%,
+      #dfe5ea calc(var(--metal-repeat) * 0.18),
+      #98a3ac calc(var(--metal-repeat) * 0.27),
+      #5f6f8c calc(var(--metal-repeat) * 0.31),
+      #2f5fd0 calc(var(--metal-repeat) * 0.35),
+      #131c3c calc(var(--metal-repeat) * 0.39),
+      #0a0c10 calc(var(--metal-repeat) * 0.45),
+      #2a1408 calc(var(--metal-repeat) * 0.5),
+      #8a3a10 calc(var(--metal-repeat) * 0.55),
+      #e07a2e calc(var(--metal-repeat) * 0.59),
+      #d8b48a calc(var(--metal-repeat) * 0.64),
+      #b9c2c9 calc(var(--metal-repeat) * 0.72),
+      #e9eef2 calc(var(--metal-repeat) * 0.86),
+      #ffffff var(--metal-repeat)
+    );
+
+    --metal-ramp-bright: repeating-linear-gradient(
+      var(--metal-angle),
+      #ffffff 0%,
+      #eef2f5 calc(var(--metal-repeat) * 0.2),
+      #c3ced9 calc(var(--metal-repeat) * 0.33),
+      #a3b4d4 calc(var(--metal-repeat) * 0.41),
+      #8f9aa4 calc(var(--metal-repeat) * 0.48),
+      #c8a98f calc(var(--metal-repeat) * 0.57),
+      #e8d5c2 calc(var(--metal-repeat) * 0.65),
+      #f4f7f9 calc(var(--metal-repeat) * 0.8),
+      #ffffff var(--metal-repeat)
+    );
+
+    /* Ink that sits on metal. Near-black in both schemes, because the material
+       does not change with the colour scheme. */
+    --metal-ink: 13 15 17;
+
+    /* Amplitude of the material across the product. */
+    --metal-gain: 1;
+  }
+
+  :root[data-wafer-finish="precision"] {
+    --metal-gain: 0.55;
+  }
+
+  :root[data-wafer-finish="alloy"] {
+    --metal-gain: 1;
+  }
+
+  :root[data-wafer-finish="prism"] {
+    --metal-gain: 1.4;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --light-x: 0.28 !important;
+      --light-y: 0.06 !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---- Metal fill ---------------------------------------------------------
+     For surfaces that carry a label. Always the bright ramp. */
+  .wafer-metal {
+    background-color: #cfd6dc;
+    background-image: var(--metal-ramp-bright);
+    color: rgb(var(--metal-ink));
+  }
+
+  /* Hover shifts the ramp rather than stepping to a second colour, so the
+     surface moves the way metal does when you tilt it. */
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-metal:hover:not(:disabled):not([data-disabled]) {
+      --metal-repeat: 38%;
+    }
+  }
+
+  .wafer-metal:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  /* Disabled has to drop the material entirely. A greyed-out label over live
+     chrome still reads as available. */
+  .wafer-metal:disabled,
+  .wafer-metal[data-disabled] {
+    background-image: none;
+    background-color: rgb(var(--surface-hover));
+    color: rgb(var(--ink-tertiary));
+  }
+
+  /* ---- Metal edge ---------------------------------------------------------
+     A one pixel ring cut from the full ramp. This is the selection signal, and
+     it replaces the coral border that used to carry it. */
+  .wafer-metal-edge {
+    position: relative;
+    --metal-strength: 0;
+  }
+
+  .wafer-metal-edge::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background-image: var(--metal-ramp);
+    content: "";
+    opacity: clamp(0, calc(var(--metal-strength) * var(--metal-gain)), 1);
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-metal-edge:hover:not(:disabled) {
+      --metal-strength: 0.34;
+    }
+  }
+
+  .wafer-metal-edge:focus-visible,
+  .wafer-metal-edge:focus-within {
+    --metal-strength: 0.66;
+  }
+
+  .wafer-metal-edge[data-selected="true"],
+  .wafer-metal-edge[aria-pressed="true"],
+  .wafer-metal-edge[aria-expanded="true"] {
+    --metal-strength: 1;
+  }
+
+  .wafer-metal-edge:disabled,
+  .wafer-metal-edge[aria-disabled="true"] {
+    --metal-strength: 0;
+  }
+
+  /* ---- Metal rule ---------------------------------------------------------
+     A hairline of the material, for panel edges and underlines. */
+  .wafer-metal-rule {
+    height: 1px;
+    border: 0;
+    margin: 0;
+    background-image: var(--metal-ramp);
+    opacity: clamp(0, calc(0.55 * var(--metal-gain)), 1);
+  }
+
+  /* ---- Substrate ----------------------------------------------------------
+     Large neutral surfaces catch a soft achromatic sheen from the shared light.
+     No hue: the substrate is what the material is seen against. */
+  .wafer-substrate {
+    background-image: radial-gradient(
+      60vmax 60vmax at calc(var(--light-x) * 100vw) calc(var(--light-y) * 100vh),
+      rgb(255 255 255 / 0.05),
+      rgb(255 255 255 / 0.012) 32%,
+      transparent 62%
+    );
+    background-attachment: fixed;
+  }
+
+  /* ---- Metal text ---------------------------------------------------------
+     Only for large display type. Never for body, labels, or anything that has
+     to be read quickly: clipped gradient text has no reliable contrast. */
+  .wafer-metal-text {
+    background-image: var(--metal-ramp-bright);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+}

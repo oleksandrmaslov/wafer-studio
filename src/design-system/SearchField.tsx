@@ -25,7 +25,7 @@ export function SearchField({
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
         placeholder={placeholder}
-        className="min-h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-base-content/40 [&::-webkit-search-cancel-button]:hidden"
+        className="min-h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-tertiary [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button

@@ -1,10 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
+import { DispersionField } from "./design-system/DispersionField.tsx";
 import "./index.css";
 
+// The light is mounted at the root so the whole product shares one source. Any
+// `.wafer-dispersive` chrome anywhere in the tree samples the same field.
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <DispersionField>
+      <App />
+    </DispersionField>
   </React.StrictMode>
 );

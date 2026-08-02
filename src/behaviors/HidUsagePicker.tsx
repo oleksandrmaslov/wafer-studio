@@ -182,7 +182,7 @@ export const HidUsagePicker = ({
           <Checkbox
             key={m}
             value={m.toLocaleString()}
-            className="grid min-h-9 cursor-pointer place-items-center rounded-md border border-line bg-base-100 px-1 text-center text-[0.625rem] font-semibold text-base-content/60 outline-none transition hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:border-primary rac-selected:bg-primary/10 rac-selected:text-primary"
+            className="grid min-h-9 cursor-pointer place-items-center rounded-md border border-line bg-base-100 px-1 text-center text-[0.625rem] font-semibold text-base-content/60 outline-none transition hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:border-line-strong rac-selected:bg-selected rac-selected:text-ink"
           >
             {mod_labels[m]}
           </Checkbox>
