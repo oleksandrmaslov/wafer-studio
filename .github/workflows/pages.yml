@@ -4,17 +4,16 @@ on:
   push:
     branches:
       - main
-    # Ordinary feature-branch pushes never deploy. Tag a reviewed branch commit
-    # with pages-preview-* when an intentional remote debug build is needed.
-    tags:
-      - "pages-preview-*"
+      # This is the intentional public debugging branch for the first Wafer
+      # development cycle. Main remains the production source.
+      - agent/wafer-foundation
   workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  # GitHub Pages has one published environment. A preview tag temporarily
-  # replaces the main deployment until main is deployed again.
+  # GitHub Pages has one published environment. Development-branch pushes
+  # temporarily replace the main deployment until main is deployed again.
   group: github-pages
   cancel-in-progress: false
 

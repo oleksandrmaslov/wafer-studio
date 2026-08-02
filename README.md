@@ -46,8 +46,8 @@ npm run storybook
 GitHub Pages serves the current published build at
 [oleksandrmaslov.github.io/zmk-studio](https://oleksandrmaslov.github.io/zmk-studio/).
 Pushes to `main` deploy production automatically. A reviewed development commit
-can be published intentionally with a `pages-preview-*` tag; ordinary feature
-branch pushes never replace the hosted site.
+on `agent/wafer-foundation` publishes the current debugging build. Other feature
+branches never replace the hosted site.
 
 ## Protocol and attribution
 
