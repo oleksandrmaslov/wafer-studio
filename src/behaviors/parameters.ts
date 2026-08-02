@@ -19,8 +19,19 @@ export function validateValue(
     } else if (v.range) {
       return value >= v.range.min && value <= v.range.max;
     } else if (v.hidUsage) {
-      const [page, id] = hid_usage_page_and_id_from_usage(value);
-      return page !== 0 && id !== 0;
+      // The high byte contains implicit modifier flags. The HID usage page
+      // and usage ID live in the lower 24 bits.
+      const [page, id] = hid_usage_page_and_id_from_usage(value & 0x00ffffff);
+
+      if (page === 7) {
+        return id >= 4 && id <= v.hidUsage.keyboardMax;
+      }
+
+      if (page === 12) {
+        return id > 0 && id <= v.hidUsage.consumerMax;
+      }
+
+      return false;
     } else if (v.layerId) {
       return layerIds.includes(value);
     } else if (v.nil) {

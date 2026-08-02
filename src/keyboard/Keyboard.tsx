@@ -17,7 +17,10 @@ import {
   BehaviorBinding,
   Layer,
 } from "@zmkfirmware/zmk-studio-ts-client/keymap";
-import type { GetBehaviorDetailsResponse } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
+import type {
+  BehaviorParameterValueDescription,
+  GetBehaviorDetailsResponse,
+} from "@zmkfirmware/zmk-studio-ts-client/behaviors";
 
 import { LayerPicker } from "./LayerPicker";
 import { PhysicalLayoutPicker } from "./PhysicalLayoutPicker";
@@ -26,24 +29,17 @@ import { useConnectedDeviceData } from "../rpc/useConnectedDeviceData";
 import { ConnectionContext } from "../rpc/ConnectionContext";
 import { UndoRedoContext } from "../undoRedo";
 import { BehaviorBindingPicker } from "../behaviors/BehaviorBindingPicker";
-import { validateBindingParameters } from "../behaviors/parameters";
+import {
+  validateBindingParameters,
+  validateValue,
+} from "../behaviors/parameters";
+import { describeHidUsage } from "../behaviors/actionCatalog";
 import { produce } from "immer";
 import { LockStateContext } from "../rpc/LockStateContext";
 import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { deserializeLayoutZoom, LayoutZoom } from "./layoutZoom";
 import { useLocalStorageState } from "../misc/useLocalStorageState";
-import {
-  Boxes,
-  Cable,
-  Cpu,
-  Grid3X3,
-  KeyboardIcon,
-  Maximize2,
-  MousePointer2,
-  Search,
-  Settings2,
-  Sparkles,
-} from "lucide-react";
+import { Cable, Maximize2, MousePointer2, ShieldCheck } from "lucide-react";
 import {
   bindingEquals,
   countDraftBindings,
@@ -66,15 +62,60 @@ export interface KeyboardProps {
 function describeBinding(
   binding: BehaviorBinding,
   behaviors: BehaviorMap,
+  layers: { id: number; name?: string }[],
 ): string {
-  const name =
-    behaviors[binding.behaviorId]?.displayName ||
-    `Behavior ${binding.behaviorId}`;
-  const parameters = [binding.param1, binding.param2].filter(
-    (parameter) => parameter !== 0,
+  const behavior = behaviors[binding.behaviorId];
+  if (!behavior) return "Unavailable action";
+
+  const layerIds = layers.map(({ id }) => id);
+  const metadata =
+    behavior.metadata.find((set) =>
+      validateValue(layerIds, binding.param1, set.param1),
+    ) || behavior.metadata[0];
+
+  const describeParameter = (
+    value: number,
+    descriptions: BehaviorParameterValueDescription[] | undefined,
+  ): string | undefined => {
+    if (!descriptions || descriptions.length === 0) return undefined;
+
+    const constant = descriptions.find(
+      (description) => description.constant === value,
+    );
+    if (constant) return constant.name;
+
+    if (descriptions.some(({ layerId }) => layerId !== undefined)) {
+      return layers.find(({ id }) => id === value)?.name || `Layer ${value}`;
+    }
+
+    if (descriptions.some(({ hidUsage }) => hidUsage !== undefined)) {
+      return describeHidUsage(value);
+    }
+
+    if (descriptions.some(({ range }) => range !== undefined)) {
+      return value.toLocaleString();
+    }
+
+    return undefined;
+  };
+
+  const param1 = describeParameter(binding.param1, metadata?.param1);
+  const param2 = describeParameter(binding.param2, metadata?.param2);
+  const parameters = [param1, param2].filter((parameter): parameter is string =>
+    Boolean(parameter),
   );
 
-  return parameters.length > 0 ? `${name} (${parameters.join(", ")})` : name;
+  if (
+    behavior.displayName.toLocaleLowerCase().replace(/[_-]+/g, " ") ===
+      "key press" &&
+    param1
+  ) {
+    return param1;
+  }
+
+  return parameters.length > 0
+    ? `${behavior.displayName} · ${parameters.join(" / ")}`
+    : behavior.displayName;
 }
 
 function useBehaviors(): BehaviorMap {
@@ -295,10 +336,18 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     () =>
       draftPlan.changes.map((change) => ({
         ...change,
-        beforeLabel: describeBinding(change.before, behaviors),
-        afterLabel: describeBinding(change.after, behaviors),
+        beforeLabel: describeBinding(
+          change.before,
+          behaviors,
+          deviceKeymap?.layers || [],
+        ),
+        afterLabel: describeBinding(
+          change.after,
+          behaviors,
+          deviceKeymap?.layers || [],
+        ),
       })),
-    [behaviors, draftPlan.changes],
+    [behaviors, deviceKeymap?.layers, draftPlan.changes],
   );
 
   const discardDraft = useCallback(() => {
@@ -606,13 +655,6 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     return keymap.layers[selectedLayerIndex].bindings[selectedKeyPosition];
   }, [keymap, selectedLayerIndex, selectedKeyPosition]);
 
-  const selectedBehavior = useMemo(
-    () => (selectedBinding ? behaviors[selectedBinding.behaviorId] : undefined),
-    [behaviors, selectedBinding],
-  );
-
-  const selectedLayer = keymap?.layers[selectedLayerIndex];
-
   const moveLayer = useCallback(
     (start: number, end: number) => {
       const doMove = async (startIndex: number, destIndex: number) => {
@@ -829,48 +871,9 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
   }, [keymap, selectedLayerIndex]);
 
   return (
-    <div className="grid min-h-0 min-w-0 grid-cols-1 grid-rows-[auto_minmax(26rem,1fr)_auto] overflow-auto bg-base-300 md:grid-cols-[12rem_minmax(0,1fr)] md:grid-rows-[minmax(24rem,1fr)_auto] xl:grid-cols-[13rem_minmax(0,1fr)_21rem] xl:grid-rows-1 xl:overflow-hidden">
-      <aside className="border-b border-line bg-base-200 md:row-span-2 md:border-b-0 md:border-r xl:row-span-1">
-        <nav aria-label="Workspace" className="border-b border-line p-3">
-          <p className="mb-2 px-2 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-base-content/55">
-            Workspace
-          </p>
-          <ul className="grid grid-cols-1 gap-1">
-            <li>
-              <button
-                type="button"
-                aria-current="page"
-                className="flex min-h-11 w-full items-center gap-2 rounded-lg bg-primary/10 px-2.5 text-left font-medium text-primary ring-1 ring-inset ring-primary/20"
-              >
-                <KeyboardIcon aria-hidden="true" className="size-4" />
-                Keymap
-              </button>
-            </li>
-            {[
-              { label: "Actions", icon: Boxes },
-              { label: "Smart Press", icon: Sparkles },
-              { label: "Device", icon: Cpu },
-              { label: "Settings", icon: Settings2 },
-            ].map(({ label, icon: Icon }) => (
-              <li key={label} className="hidden md:block">
-                <button
-                  type="button"
-                  disabled
-                  title={`${label} workspace is coming next`}
-                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-left text-base-content/45"
-                >
-                  <Icon aria-hidden="true" className="size-4" />
-                  <span>{label}</span>
-                  <span className="ml-auto text-[0.625rem] font-semibold uppercase tracking-wide">
-                    Soon
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="grid gap-5 p-3">
+    <div className="grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(32rem,1fr)_auto] overflow-auto bg-base-300 xl:grid-cols-[minmax(0,1fr)_26rem] xl:grid-rows-1 xl:overflow-hidden">
+      <main className="grid min-h-[32rem] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-base-300 xl:min-h-0">
+        <div className="grid gap-4 border-b border-line bg-base-200 px-4 py-3 lg:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)_auto] lg:items-end">
           {layouts && (
             <PhysicalLayoutPicker
               layouts={layouts}
@@ -882,6 +885,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
           {keymap && (
             <LayerPicker
+              orientation="horizontal"
               layers={keymap.layers}
               selectedLayerIndex={selectedLayerIndex}
               onLayerClicked={setSelectedLayerIndex}
@@ -894,27 +898,8 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               onLayerNameChanged={changeLayerName}
             />
           )}
-          {countDraftBindings(draftBindings) > 0 && (
-            <p className="rounded-lg border border-line bg-base-100 px-3 py-2 text-xs leading-relaxed text-base-content/60">
-              Apply or discard the key draft before changing the physical layout
-              or layer structure.
-            </p>
-          )}
-        </div>
-      </aside>
 
-      <main className="grid min-h-[26rem] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-base-300 md:min-h-0">
-        <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-line bg-base-200 px-4 py-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-base-content/50">
-              <Grid3X3 aria-hidden="true" className="size-3.5" />
-              Active layer
-            </div>
-            <p className="truncate font-semibold text-base-content">
-              {selectedLayer?.name || `Layer ${selectedLayerIndex}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               aria-label="Fit keyboard to viewport"
@@ -946,6 +931,12 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               <option value={2}>200%</option>
             </select>
           </div>
+          {countDraftBindings(draftBindings) > 0 && (
+            <p className="text-xs leading-relaxed text-base-content/55 lg:col-span-3">
+              Layer structure and physical layout stay locked until this key
+              draft is applied or discarded.
+            </p>
+          )}
         </div>
 
         <section
@@ -979,21 +970,24 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
         <div className="flex min-h-11 items-center gap-2 border-t border-line bg-base-200 px-4 text-xs text-base-content/60">
           <MousePointer2 aria-hidden="true" className="size-3.5" />
-          Select a key to inspect it. Key assignments stay local until you
-          review and apply the draft.
+          Select a key, then choose what it should do. Nothing is sent until you
+          review the draft.
         </div>
       </main>
 
-      <aside className="border-t border-line bg-base-200 md:col-start-2 xl:col-start-3 xl:row-start-1 xl:border-l xl:border-t-0">
+      <aside className="border-t border-line bg-base-200 xl:col-start-2 xl:row-start-1 xl:flex xl:min-h-0 xl:flex-col xl:border-l xl:border-t-0">
         <div className="flex min-h-14 items-center justify-between border-b border-line px-4">
           <div>
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-base-content/50">
-              Inspector
+              {selectedKeyPosition === undefined
+                ? "Assignment library"
+                : keymap?.layers[selectedLayerIndex]?.name ||
+                  `Layer ${selectedLayerIndex}`}
             </p>
             <h2 className="font-semibold">
               {selectedKeyPosition === undefined
-                ? "No key selected"
-                : `Key ${selectedKeyPosition + 1}`}
+                ? "Choose a key"
+                : `Assign key ${selectedKeyPosition + 1}`}
             </h2>
           </div>
           {selectedKeyPosition !== undefined && (
@@ -1004,13 +998,10 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
         </div>
 
         {keymap && selectedBinding ? (
-          <div className="grid gap-5 p-4">
-            <div className="rounded-xl border border-primary/25 bg-primary/10 p-3 text-sm text-base-content">
-              <p className="font-semibold text-primary">Local draft</p>
-              <p className="mt-1 text-xs leading-relaxed text-base-content/65">
-                Assignments change this preview only. Review the diff before
-                sending anything to the keyboard.
-              </p>
+          <div className="grid gap-4 overflow-y-auto p-4">
+            <div className="flex items-center gap-2 text-xs text-base-content/60">
+              <ShieldCheck aria-hidden="true" className="size-4 text-primary" />
+              Changes stay local until Review.
             </div>
 
             <BehaviorBindingPicker
@@ -1021,39 +1012,9 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
                 id,
                 name: name || li.toLocaleString(),
               }))}
+              isDisabled={isApplyingDraft}
               onBindingChanged={doUpdateBinding}
             />
-
-            <details className="group rounded-xl border border-line bg-base-100">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-                <Search
-                  aria-hidden="true"
-                  className="size-4 text-base-content/55"
-                />
-                Advanced ZMK details
-                <span className="ml-auto font-mono text-[0.625rem] font-normal uppercase tracking-wide text-base-content/45">
-                  Raw
-                </span>
-              </summary>
-              <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 border-t border-line px-3 py-3 text-xs">
-                <dt className="text-base-content/55">Display name</dt>
-                <dd className="text-right font-medium">
-                  {selectedBehavior?.displayName || "Unknown behavior"}
-                </dd>
-                <dt className="text-base-content/55">Runtime ID</dt>
-                <dd className="font-mono tabular-nums">
-                  {selectedBinding.behaviorId}
-                </dd>
-                <dt className="text-base-content/55">Parameter 1</dt>
-                <dd className="font-mono tabular-nums">
-                  0x{selectedBinding.param1.toString(16).padStart(8, "0")}
-                </dd>
-                <dt className="text-base-content/55">Parameter 2</dt>
-                <dd className="font-mono tabular-nums">
-                  0x{selectedBinding.param2.toString(16).padStart(8, "0")}
-                </dd>
-              </dl>
-            </details>
           </div>
         ) : (
           <div className="grid min-h-56 place-items-center p-6 text-center">
@@ -1063,8 +1024,8 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               </div>
               <p className="font-semibold">Choose a key</p>
               <p className="mt-1 text-sm leading-relaxed text-base-content/60">
-                Select any key on the layout to see its action and available
-                parameters.
+                Select any key on the layout to assign a key press, shortcut,
+                layer, or device action.
               </p>
             </div>
           </div>

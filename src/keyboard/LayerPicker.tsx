@@ -22,6 +22,7 @@ export type LayerMovedCallback = (index: number, destination: number) => void;
 interface LayerPickerProps {
   layers: Array<Layer>;
   selectedLayerIndex: number;
+  orientation?: "vertical" | "horizontal";
   canAdd?: boolean;
   canRemove?: boolean;
   isStructureDisabled?: boolean;
@@ -117,6 +118,7 @@ const EditLabelModal = ({
 export const LayerPicker = ({
   layers,
   selectedLayerIndex,
+  orientation = "vertical",
   canAdd,
   canRemove,
   isStructureDisabled,
@@ -234,7 +236,11 @@ export const LayerPicker = ({
             ? [layer_items[selectedLayerIndex].id]
             : []
         }
-        className="grid cursor-pointer gap-1 max-md:auto-cols-[minmax(9rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1"
+        className={
+          orientation === "horizontal"
+            ? "grid cursor-pointer auto-cols-[minmax(8.5rem,10rem)] grid-flow-col gap-1 overflow-x-auto pb-1"
+            : "grid cursor-pointer gap-1 max-md:auto-cols-[minmax(9rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1"
+        }
         onSelectionChange={selectionChanged}
         dragAndDropHooks={dragAndDropHooks}
         {...props}

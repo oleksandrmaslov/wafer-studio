@@ -36,6 +36,8 @@ export interface AppHeaderProps {
   onRedo?: () => Promise<void>;
   onResetSettings?: () => void | Promise<void>;
   onDisconnect?: () => void | Promise<void>;
+  onShowAbout?: () => void;
+  onShowLicenseNotice?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   draftCount?: number;
@@ -56,6 +58,8 @@ export const AppHeader = ({
   onDiscard,
   onDisconnect,
   onResetSettings,
+  onShowAbout,
+  onShowLicenseNotice,
   draftCount = 0,
   draftChanges = [],
   draftErrors = [],
@@ -127,9 +131,8 @@ export const AppHeader = ({
         <h2 className="my-2 text-lg font-semibold">Restore stock settings?</h2>
         <div>
           <p className="max-w-md text-sm leading-relaxed text-base-content/65">
-            This removes customizations stored through ZMK Studio and restores
-            the keyboard&apos;s stock keymap. This action cannot be undone from
-            Wafer Studio.
+            This removes customizations stored on the keyboard and restores its
+            stock keymap. This action cannot be undone from Wafer Studio.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Button
@@ -313,6 +316,18 @@ export const AppHeader = ({
               isDisabled={hasDraft || applying}
             >
               Restore Stock Settings
+            </MenuItem>
+            <MenuItem
+              className="mt-1 flex min-h-10 items-center rounded-lg border-t border-line px-3 pt-1 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300"
+              onAction={onShowAbout}
+            >
+              About Wafer Studio
+            </MenuItem>
+            <MenuItem
+              className="flex min-h-10 items-center rounded-lg px-3 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300"
+              onAction={onShowLicenseNotice}
+            >
+              Open-source notices
             </MenuItem>
           </Menu>
         </Popover>

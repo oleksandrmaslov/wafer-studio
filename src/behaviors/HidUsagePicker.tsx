@@ -36,20 +36,14 @@ export interface HidUsagePickerProps {
 type UsageSectionProps = HidUsagePage;
 
 const UsageSection = ({ id, min, max }: UsageSectionProps) => {
-  const info = useMemo(() => hid_usage_page_get_ids(id), [id]);
-
-  const usages = useMemo(() => {
-    let usages = info?.UsageIds || [];
-    if (max || min) {
-      usages = usages.filter(
-        (i) =>
-          (i.Id <= (max || Number.MAX_SAFE_INTEGER) && i.Id >= (min || 0)) ||
-          (id === 7 && i.Id >= 0xe0 && i.Id <= 0xe7),
-      );
-    }
-
-    return usages;
-  }, [id, min, max, info]);
+  const info = hid_usage_page_get_ids(id);
+  let usages = info?.UsageIds || [];
+  if (max !== undefined || min !== undefined) {
+    usages = usages.filter(
+      (usage) =>
+        usage.Id <= (max ?? Number.MAX_SAFE_INTEGER) && usage.Id >= (min ?? 0),
+    );
+  }
 
   return (
     <Section id={id}>

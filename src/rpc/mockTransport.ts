@@ -821,11 +821,18 @@ export class MockRpcTransport extends FramedRpcTransport {
         return this.keymap.layers.some(({ id }) => id === value);
       }
       if (description.hidUsage) {
-        const page = Math.floor(value / 0x10000) & 0xffff;
-        const usage = value & 0xffff;
+        // Implicit modifier flags live in the high byte and are not part of
+        // the encoded HID page/usage pair.
+        const hidUsage = value & 0x00ffffff;
+        const page = Math.floor(hidUsage / 0x10000) & 0xffff;
+        const usage = hidUsage & 0xffff;
         return (
-          (page === 0x07 && usage <= description.hidUsage.keyboardMax) ||
-          (page === 0x0c && usage <= description.hidUsage.consumerMax)
+          (page === 0x07 &&
+            usage >= 4 &&
+            usage <= description.hidUsage.keyboardMax) ||
+          (page === 0x0c &&
+            usage > 0 &&
+            usage <= description.hidUsage.consumerMax)
         );
       }
       return false;

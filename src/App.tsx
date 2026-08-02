@@ -26,7 +26,6 @@ import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { LockStateContext } from "./rpc/LockStateContext";
 import { UnlockModal } from "./UnlockModal";
 import { valueAfter } from "./misc/async";
-import { AppFooter } from "./AppFooter";
 import { AboutModal } from "./AboutModal";
 import { LicenseNoticeModal } from "./misc/LicenseNoticeModal";
 import { createMockRpcTransport } from "./rpc/mockTransport";
@@ -356,7 +355,7 @@ function App() {
             open={showLicenseNotice}
             onClose={() => setShowLicenseNotice(false)}
           />
-          <div className="grid h-[100dvh] min-h-0 w-full max-w-[100vw] grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-base-100 text-base-content">
+          <div className="grid h-[100dvh] min-h-0 w-full max-w-[100vw] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base-100 text-base-content">
             <AppHeader
               connectedDeviceLabel={connectedDeviceName}
               canUndo={canUndo}
@@ -367,6 +366,8 @@ function App() {
               onDiscard={discard}
               onDisconnect={disconnect}
               onResetSettings={resetSettings}
+              onShowAbout={() => setShowAbout(true)}
+              onShowLicenseNotice={() => setShowLicenseNotice(true)}
               draftCount={draftController?.draftCount || 0}
               draftChanges={draftController?.changes || []}
               draftErrors={draftController?.errors || []}
@@ -375,10 +376,6 @@ function App() {
               onDiscardDraft={discardDraft}
             />
             <Keyboard onDraftStateChange={setDraftController} />
-            <AppFooter
-              onShowAbout={() => setShowAbout(true)}
-              onShowLicenseNotice={() => setShowLicenseNotice(true)}
-            />
           </div>
         </UndoRedoContext.Provider>
       </LockStateContext.Provider>

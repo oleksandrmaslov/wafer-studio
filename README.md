@@ -8,11 +8,14 @@ TypeScript client underneath a warmer, capability-driven product experience.
 
 This branch establishes the first vertical slice of the Wafer redesign:
 
-- A branded, responsive keymap workspace with real device geometry and layers.
+- A canvas-first keymap workspace with real device geometry and compact layer
+  controls.
 - USB, supported Bluetooth, and native Tauri connection paths inherited from
   ZMK Studio.
 - A deterministic Wafer demo keyboard for review without physical hardware.
-- A generic inspector for every behavior reported by the connected firmware.
+- A capability-aware **Keys / Actions / Multi** assignment library with visual
+  keycaps, search, modifier chords, grouped device actions, and Hold/Tap
+  composition.
 - Local key-assignment drafts with undo/redo, a deterministic review diff, and
   explicit Apply to volatile device memory.
 - A separate permanent Save step after Apply, with partial-failure recovery that
@@ -21,6 +24,10 @@ This branch establishes the first vertical slice of the Wafer redesign:
 Layer structure and physical-layout changes still use the upstream live RPC
 flow. Wafer disables those controls while a key-assignment draft is pending;
 bringing them into the same operation planner is a later domain slice.
+
+The planned interaction model for combos and conditional layers is documented
+in [`docs/wafer-interaction-model.md`](./docs/wafer-interaction-model.md). Both
+remain hidden until the ZMK Studio protocol exposes safe read/write support.
 
 ## Development
 
