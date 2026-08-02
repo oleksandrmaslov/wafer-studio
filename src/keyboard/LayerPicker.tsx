@@ -1,4 +1,4 @@
-import { Pencil, Minus, Plus } from "lucide-react";
+import { GripVertical, Minus, Pencil, Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import {
   DropIndicator,
@@ -32,7 +32,7 @@ interface LayerPickerProps {
   onLayerNameChanged?: (
     id: number,
     oldName: string,
-    newName: string
+    newName: string,
   ) => void | Promise<void>;
 }
 
@@ -53,7 +53,7 @@ const EditLabelModal = ({
   handleSaveNewLabel: (
     id: number,
     oldName: string,
-    newName: string | null
+    newName: string | null,
   ) => void;
 }) => {
   const ref = useModalRef(open);
@@ -68,11 +68,18 @@ const EditLabelModal = ({
     <GenericModal
       ref={ref}
       onClose={onClose}
-      className="min-w-min w-[30vw] flex flex-col"
+      className="flex w-[min(28rem,calc(100vw-2rem))] min-w-min flex-col"
     >
-      <span className="mb-3 text-lg">New Layer Name</span>
+      <span className="mb-1 text-lg font-semibold">Rename layer</span>
+      <p className="mb-4 text-sm text-base-content/60">
+        Use a short name that makes the layer easy to recognize on the canvas.
+      </p>
+      <label htmlFor="layer-name" className="mb-1 text-sm font-medium">
+        Layer name
+      </label>
       <input
-        className="p-1 border rounded border-base-content border-solid"
+        id="layer-name"
+        className="min-h-11 rounded-lg border border-line bg-raised px-3 text-base-content"
         type="text"
         defaultValue={editLabelData.name}
         autoFocus
@@ -84,12 +91,16 @@ const EditLabelModal = ({
           }
         }}
       />
-      <div className="mt-4 flex justify-end">
-        <button className="py-1.5 px-2" type="button" onClick={onClose}>
+      <div className="mt-5 flex justify-end gap-2">
+        <button
+          className="min-h-11 rounded-lg px-4 text-sm font-semibold hover:bg-base-300"
+          type="button"
+          onClick={onClose}
+        >
           Cancel
         </button>
         <button
-          className="py-1.5 px-2 ml-4 rounded-md bg-gray-100 text-black hover:bg-gray-300"
+          className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-content hover:bg-wafer-deep"
           type="button"
           onClick={() => {
             handleSave();
@@ -115,7 +126,7 @@ export const LayerPicker = ({
   ...props
 }: LayerPickerProps) => {
   const [editLabelData, setEditLabelData] = useState<EditLabelData | null>(
-    null
+    null,
   );
 
   const layer_items = useMemo(() => {
@@ -135,10 +146,10 @@ export const LayerPicker = ({
 
       onLayerClicked?.(layer_items.findIndex((l) => s.has(l.id)));
     },
-    [onLayerClicked, layer_items]
+    [onLayerClicked, layer_items],
   );
 
-  let { dragAndDropHooks } = useDragAndDrop({
+  const { dragAndDropHooks } = useDragAndDrop({
     renderDropIndicator(target) {
       return (
         <DropIndicator
@@ -150,8 +161,8 @@ export const LayerPicker = ({
     getItems: (keys) =>
       [...keys].map((key) => ({ "text/plain": key.toLocaleString() })),
     onReorder(e) {
-      let startIndex = layer_items.findIndex((l) => e.keys.has(l.id));
-      let endIndex = layer_items.findIndex((l) => l.id === e.target.key);
+      const startIndex = layer_items.findIndex((l) => e.keys.has(l.id));
+      const endIndex = layer_items.findIndex((l) => l.id === e.target.key);
       onLayerMoved?.(startIndex, endIndex);
     },
   });
@@ -162,17 +173,21 @@ export const LayerPicker = ({
         onLayerNameChanged?.(id, oldName, newName);
       }
     },
-    [onLayerNameChanged]
+    [onLayerNameChanged],
   );
 
   return (
-    <div className="flex flex-col min-w-40">
-      <div className="grid grid-cols-[1fr_auto_auto] items-center">
-        <Label className="after:content-[':'] text-sm">Layers</Label>
+    <div className="flex min-w-0 flex-col">
+      <div className="mb-2 grid grid-cols-[1fr_auto_auto] items-center gap-1">
+        <Label className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-base-content/55">
+          Layers
+        </Label>
         {onRemoveClicked && (
           <button
             type="button"
-            className="hover:text-primary-content hover:bg-primary rounded-sm"
+            aria-label="Remove selected layer"
+            title="Remove selected layer"
+            className="grid size-9 place-items-center rounded-lg border border-transparent text-base-content/60 transition enabled:hover:border-line enabled:hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-35"
             disabled={!canRemove}
             onClick={onRemoveClicked}
           >
@@ -182,8 +197,10 @@ export const LayerPicker = ({
         {onAddClicked && (
           <button
             type="button"
+            aria-label="Add layer"
+            title={canAdd ? "Add layer" : "No reserved layers available"}
             disabled={!canAdd}
-            className="hover:text-primary-content ml-1 hover:bg-primary rounded-sm disabled:text-gray-500 disabled:hover:bg-base-300 disabled:cursor-not-allowed"
+            className="grid size-9 place-items-center rounded-lg border border-transparent text-base-content/60 transition enabled:hover:border-line enabled:hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-35"
             onClick={onAddClicked}
           >
             <Plus className="size-4" />
@@ -208,7 +225,7 @@ export const LayerPicker = ({
             ? [layer_items[selectedLayerIndex].id]
             : []
         }
-        className="ml-2 items-center justify-center cursor-pointer"
+        className="grid cursor-pointer gap-1 max-md:auto-cols-[minmax(9rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1"
         onSelectionChange={selectionChanged}
         dragAndDropHooks={dragAndDropHooks}
         {...props}
@@ -216,15 +233,30 @@ export const LayerPicker = ({
         {(layer_item) => (
           <ListBoxItem
             textValue={layer_item.name}
-            className="p-1 b-1 my-1 group grid grid-cols-[1fr_auto] items-center aria-selected:bg-primary aria-selected:text-primary-content border rounded border-transparent border-solid hover:bg-base-300"
+            className="group grid min-h-11 grid-cols-[auto_auto_1fr_auto] items-center gap-1 rounded-lg border border-transparent px-1.5 text-sm outline-none transition hover:border-line hover:bg-base-100 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:border-primary/25 rac-selected:bg-primary/10 rac-selected:text-primary"
           >
-            <span>{layer_item.name}</span>
-            <Pencil
-              className="h-4 w-4 mx-1 invisible group-hover:visible"
-              onClick={() =>
-                setEditLabelData({ id: layer_item.id, name: layer_item.name })
-              }
+            <GripVertical
+              aria-hidden="true"
+              className="size-3.5 text-base-content/25"
             />
+            <span className="grid size-6 place-items-center rounded-md border border-line bg-raised font-mono text-[0.625rem] text-base-content/55">
+              {layer_item.index}
+            </span>
+            <span className="truncate font-medium">{layer_item.name}</span>
+            <button
+              type="button"
+              aria-label={`Rename ${layer_item.name}`}
+              className="grid size-8 place-items-center rounded-md text-base-content/45 opacity-0 transition hover:bg-base-300 hover:text-base-content focus:opacity-100 group-hover:opacity-100"
+              onClick={(event) => {
+                event.stopPropagation();
+                setEditLabelData({
+                  id: layer_item.id,
+                  name: layer_item.name,
+                });
+              }}
+            >
+              <Pencil aria-hidden="true" className="size-3.5" />
+            </button>
           </ListBoxItem>
         )}
       </ListBox>

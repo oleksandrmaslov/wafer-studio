@@ -18,14 +18,17 @@ export const ParameterValuePicker = ({
     return <></>;
   } else if (values.every((v) => v.constant !== undefined)) {
     return (
-      <div>
+      <div className="grid gap-1.5">
+        <label className="text-sm font-semibold">Value</label>
         <select
           value={value}
-          className="h-8 rounded"
+          className="min-h-11 w-full rounded-lg border border-line bg-raised px-3 text-sm text-base-content outline-none transition hover:border-base-content/30 focus-visible:ring-2 focus-visible:ring-focus"
           onChange={(e) => onValueChanged(parseInt(e.target.value))}
         >
           {values.map((v) => (
-            <option value={v.constant}>{v.name}</option>
+            <option key={`${v.name}-${v.constant}`} value={v.constant}>
+              {v.name}
+            </option>
           ))}
         </select>
       </div>
@@ -33,10 +36,11 @@ export const ParameterValuePicker = ({
   } else if (values.length == 1) {
     if (values[0].range) {
       return (
-        <div>
-          <label>{values[0].name}: </label>
+        <div className="grid gap-1.5">
+          <label className="text-sm font-semibold">{values[0].name}</label>
           <input
             type="number"
+            className="min-h-11 w-full rounded-lg border border-line bg-raised px-3 font-mono text-sm tabular-nums text-base-content outline-none transition hover:border-base-content/30 focus-visible:ring-2 focus-visible:ring-focus"
             min={values[0].range.min}
             max={values[0].range.max}
             value={value}
@@ -58,26 +62,31 @@ export const ParameterValuePicker = ({
       );
     } else if (values[0].layerId) {
       return (
-        <div>
-          <label>{values[0].name}: </label>
+        <div className="grid gap-1.5">
+          <label className="text-sm font-semibold">{values[0].name}</label>
           <select
             value={value}
-            className="h-8 rounded"
+            className="min-h-11 w-full rounded-lg border border-line bg-raised px-3 text-sm text-base-content outline-none transition hover:border-base-content/30 focus-visible:ring-2 focus-visible:ring-focus"
             onChange={(e) => onValueChanged(parseInt(e.target.value))}
           >
             {layers.map(({ name, id }) => (
-              <option value={id}>{name}</option>
+              <option key={id} value={id}>
+                {name}
+              </option>
             ))}
           </select>
         </div>
       );
     }
   } else {
-    console.log("Not sure how to handle", values);
     return (
-      <>
-        <p>Some composite?</p>
-      </>
+      <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+        <p className="font-semibold text-warning">Advanced parameter shape</p>
+        <p className="mt-1 text-xs leading-relaxed text-base-content/65">
+          This firmware reports multiple parameter variants. Raw editing for
+          this shape is not available in the current preview.
+        </p>
+      </div>
     );
   }
 

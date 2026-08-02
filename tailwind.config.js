@@ -5,31 +5,44 @@ import contQueries from "@tailwindcss/container-queries";
 export default {
   content: ["./index.html", "./download.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
-    fontSize: {
-      xs: "0.4rem",
-    },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui"],
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        keycap: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "monospace",
+        ],
       },
       colors: {
-        primary:
-          "light-dark(oklch(49.12% 0.3096 285.75), oklch(65.69% 0.196 285.75))",
-        "primary-content":
-          "light-dark(oklch(0.89824 0.06192 285.75), oklch(0.13138 0.0392 285.75))",
-        secondary:
-          "light-dark(oklch(69.71% 0.329 342.55), oklch(74.8% 0.26 342.55))",
-        accent:
-          "light-dark(oklch(76.76% 0.184 183.61), oklch(74.51% 0.167 183.61))",
-        "base-content": "light-dark(#1f2937, #A6ADBB)",
-        "base-100": "light-dark(oklch(100% 0 0), #1d232a)",
-        "base-200": "light-dark(#F2F2F2, #191e24)",
-        "base-300": "light-dark(#E5E6E6, #15191e)",
-      },
-    },
+        canvas: "rgb(var(--surface-canvas) / <alpha-value>)",
+        panel: "rgb(var(--surface-panel) / <alpha-value>)",
+        raised: "rgb(var(--surface-raised) / <alpha-value>)",
+        ink: "rgb(var(--ink-primary) / <alpha-value>)",
+        muted: "rgb(var(--ink-secondary) / <alpha-value>)",
+        line: "rgb(var(--line-default) / <alpha-value>)",
+        wafer: "rgb(var(--wafer-primary) / <alpha-value>)",
+        "wafer-deep": "rgb(var(--wafer-deep) / <alpha-value>)",
+        success: "rgb(var(--status-success) / <alpha-value>)",
+        warning: "rgb(var(--status-warning) / <alpha-value>)",
+        danger: "rgb(var(--status-danger) / <alpha-value>)",
+        focus: "rgb(var(--focus-ring) / <alpha-value>)",
 
-    fontFamily: {
-      keycap: ["Inter", "system-ui"],
+        // Compatibility aliases keep the existing ZMK components themed while
+        // new Wafer surfaces use the semantic names above.
+        primary: "rgb(var(--wafer-primary) / <alpha-value>)",
+        "primary-content": "rgb(var(--primary-content) / <alpha-value>)",
+        secondary: "rgb(var(--wafer-deep) / <alpha-value>)",
+        accent: "rgb(var(--focus-ring) / <alpha-value>)",
+        "base-content": "rgb(var(--ink-primary) / <alpha-value>)",
+        "base-100": "rgb(var(--surface-raised) / <alpha-value>)",
+        "base-200": "rgb(var(--surface-panel) / <alpha-value>)",
+        "base-300": "rgb(var(--surface-canvas) / <alpha-value>)",
+      },
     },
   },
   plugins: [contQueries, trac({ prefix: "rac" })],

@@ -19,7 +19,7 @@ function validateBinding(
   metadata: BehaviorBindingParametersSet[],
   layerIds: number[],
   param1?: number,
-  param2?: number
+  param2?: number,
 ): boolean {
   if (
     (param1 === undefined || param1 === 0) &&
@@ -28,8 +28,8 @@ function validateBinding(
     return true;
   }
 
-  let matchingSet = metadata.find((s) =>
-    validateValue(layerIds, param1, s.param1)
+  const matchingSet = metadata.find((s) =>
+    validateValue(layerIds, param1, s.param1),
   );
 
   if (!matchingSet) {
@@ -51,12 +51,18 @@ export const BehaviorBindingPicker = ({
 
   const metadata = useMemo(
     () => behaviors.find((b) => b.id == behaviorId)?.metadata,
-    [behaviorId, behaviors]
+    [behaviorId, behaviors],
   );
 
   const sortedBehaviors = useMemo(
-    () => behaviors.sort((a, b) => a.displayName.localeCompare(b.displayName)),
-    [behaviors]
+    () =>
+      [...behaviors].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    [behaviors],
+  );
+
+  const selectedBehavior = useMemo(
+    () => behaviors.find((behavior) => behavior.id === behaviorId),
+    [behaviorId, behaviors],
   );
 
   useEffect(() => {
@@ -71,7 +77,7 @@ export const BehaviorBindingPicker = ({
     if (!metadata) {
       console.error(
         "Can't find metadata for the selected behaviorId",
-        behaviorId
+        behaviorId,
       );
       return;
     }
@@ -81,7 +87,7 @@ export const BehaviorBindingPicker = ({
         metadata,
         layers.map(({ id }) => id),
         param1,
-        param2
+        param2,
       )
     ) {
       onBindingChanged({
@@ -90,7 +96,17 @@ export const BehaviorBindingPicker = ({
         param2: param2 || 0,
       });
     }
-  }, [behaviorId, param1, param2]);
+  }, [
+    behaviorId,
+    binding.behaviorId,
+    binding.param1,
+    binding.param2,
+    layers,
+    metadata,
+    onBindingChanged,
+    param1,
+    param2,
+  ]);
 
   useEffect(() => {
     setBehaviorId(binding.behaviorId);
@@ -99,12 +115,27 @@ export const BehaviorBindingPicker = ({
   }, [binding]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <section aria-labelledby="binding-action-heading" className="grid gap-4">
       <div>
-        <label>Behavior: </label>
+        <p
+          id="binding-action-heading"
+          className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-base-content/50"
+        >
+          Key action
+        </p>
+        <p className="mt-1 text-sm text-base-content/65">
+          Choose from the behaviors reported by this keyboard.
+        </p>
+      </div>
+
+      <div className="grid gap-1.5">
+        <label htmlFor="behavior-picker" className="text-sm font-semibold">
+          Behavior
+        </label>
         <select
+          id="behavior-picker"
           value={behaviorId}
-          className="h-8 rounded"
+          className="min-h-11 w-full rounded-lg border border-line bg-raised px-3 text-sm text-base-content outline-none transition hover:border-base-content/30 focus-visible:ring-2 focus-visible:ring-focus"
           onChange={(e) => {
             setBehaviorId(parseInt(e.target.value));
             setParam1(0);
@@ -117,17 +148,26 @@ export const BehaviorBindingPicker = ({
             </option>
           ))}
         </select>
+        <p className="font-mono text-[0.6875rem] text-base-content/45">
+          Runtime behavior {selectedBehavior?.id ?? behaviorId}
+        </p>
       </div>
+
       {metadata && (
-        <BehaviorParametersPicker
-          metadata={metadata}
-          param1={param1}
-          param2={param2}
-          layers={layers}
-          onParam1Changed={setParam1}
-          onParam2Changed={setParam2}
-        />
+        <div className="grid gap-3 border-t border-line pt-4">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-base-content/50">
+            Parameters
+          </p>
+          <BehaviorParametersPicker
+            metadata={metadata}
+            param1={param1}
+            param2={param2}
+            layers={layers}
+            onParam1Changed={setParam1}
+            onParam2Changed={setParam2}
+          />
+        </div>
       )}
-    </div>
+    </section>
   );
 };

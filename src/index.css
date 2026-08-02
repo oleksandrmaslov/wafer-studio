@@ -6,12 +6,90 @@
   @font-face {
     font-family: "Inter";
     src: url("/Inter.woff2") format("woff2");
-    font-display: fallback;
+    font-display: swap;
   }
-}
 
-html {
-  color-scheme: light dark;
+  :root {
+    /* Wafer's warm industrial light palette. RGB channels preserve Tailwind
+       opacity modifiers such as bg-primary/10. */
+    --surface-canvas: 243 240 232; /* #F3F0E8 */
+    --surface-panel: 252 250 244; /* #FCFAF4 */
+    --surface-raised: 255 255 255; /* #FFFFFF */
+    --ink-primary: 23 24 21; /* #171815 */
+    --ink-secondary: 93 96 89; /* #5D6059 */
+    --line-default: 213 209 198; /* #D5D1C6 */
+    --wafer-primary: 255 106 61; /* #FF6A3D */
+    --wafer-deep: 158 50 31; /* #9E321F */
+    --status-success: 46 125 91; /* #2E7D5B */
+    --status-warning: 168 100 19; /* #A86413 */
+    --status-danger: 184 58 54; /* #B83A36 */
+    --focus-ring: 21 94 239; /* #155EEF */
+    --primary-content: 23 24 21;
+    --key-selection-border: 158 50 31;
+    --key-shadow: 0 2px 0 rgb(var(--line-default)),
+      0 5px 14px rgb(var(--ink-primary) / 0.09);
+    --key-shadow-hover: 0 3px 0 rgb(var(--line-default)),
+      0 8px 18px rgb(var(--ink-primary) / 0.13);
+    --key-shadow-pressed: inset 0 2px 3px rgb(var(--ink-primary) / 0.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      /* The dark palette keeps the same warm hue while lifting foregrounds
+         enough for legible boundaries and status colors. */
+      --surface-canvas: 23 24 20; /* #171814 */
+      --surface-panel: 31 32 27; /* #1F201B */
+      --surface-raised: 41 42 36; /* #292A24 */
+      --ink-primary: 245 240 230; /* #F5F0E6 */
+      --ink-secondary: 187 182 170; /* #BBB6AA */
+      --line-default: 69 71 62; /* #45473E */
+      --wafer-primary: 255 129 92; /* #FF815C */
+      --wafer-deep: 201 78 44; /* #C94E2C */
+      --status-success: 100 181 141; /* #64B58D */
+      --status-warning: 225 163 76; /* #E1A34C */
+      --status-danger: 237 107 102; /* #ED6B66 */
+      --focus-ring: 120 168 255; /* #78A8FF */
+      --primary-content: 23 24 21;
+      --key-selection-border: 255 129 92;
+      --key-shadow: 0 2px 0 rgb(10 11 8), 0 6px 16px rgb(0 0 0 / 0.34);
+      --key-shadow-hover: 0 3px 0 rgb(10 11 8), 0 9px 20px rgb(0 0 0 / 0.42);
+      --key-shadow-pressed: inset 0 2px 4px rgb(0 0 0 / 0.48);
+    }
+  }
+
+  html {
+    color-scheme: light dark;
+    background: rgb(var(--surface-canvas));
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    background: rgb(var(--surface-canvas));
+    color: rgb(var(--ink-primary));
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--wafer-primary) / 0.28);
+    color: rgb(var(--ink-primary));
+  }
 }
 
 #root {
@@ -19,10 +97,63 @@ html {
   width: 100%;
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
+@layer components {
+  .wafer-key {
+    border: 1px solid rgb(var(--line-default));
+    border-radius: 0.55rem;
+    background: rgb(var(--surface-raised));
+    color: rgb(var(--ink-primary));
+    box-shadow: var(--key-shadow);
+    transition:
+      transform 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease;
+  }
 
-  width: 100vw;
-  height: 100vh;
+  .wafer-key[data-interactive="true"]:hover {
+    z-index: 1;
+    transform: translateY(-1px);
+    border-color: rgb(var(--wafer-primary) / 0.72);
+    box-shadow: var(--key-shadow-hover);
+  }
+
+  .wafer-key[data-interactive="true"]:active {
+    transform: translateY(1px);
+    box-shadow: var(--key-shadow-pressed);
+  }
+
+  .wafer-key[data-selected="true"] {
+    border-color: rgb(var(--key-selection-border));
+    box-shadow:
+      0 0 0 2px rgb(var(--key-selection-border)),
+      var(--key-shadow);
+  }
+
+  .wafer-key[data-selected="true"]::after {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-bottom-left-radius: 0.45rem;
+    background: rgb(var(--wafer-primary));
+    content: "";
+  }
+
+  .wafer-key:focus-visible {
+    z-index: 2;
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

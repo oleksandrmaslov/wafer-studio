@@ -17,7 +17,7 @@ import {
   hid_usage_from_page_and_id,
   hid_usage_page_get_ids,
 } from "../hid-usages";
-import { useCallback, useMemo } from "react";
+import { useCallback, useId, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 
 export interface HidUsagePage {
@@ -38,13 +38,13 @@ type UsageSectionProps = HidUsagePage;
 const UsageSection = ({ id, min, max }: UsageSectionProps) => {
   const info = useMemo(() => hid_usage_page_get_ids(id), [id]);
 
-  let usages = useMemo(() => {
+  const usages = useMemo(() => {
     let usages = info?.UsageIds || [];
     if (max || min) {
       usages = usages.filter(
         (i) =>
           (i.Id <= (max || Number.MAX_SAFE_INTEGER) && i.Id >= (min || 0)) ||
-          (id === 7 && i.Id >= 0xe0 && i.Id <= 0xe7)
+          (id === 7 && i.Id >= 0xe0 && i.Id <= 0xe7),
       );
     }
 
@@ -115,8 +115,9 @@ export const HidUsagePicker = ({
   usagePages,
   onValueChanged,
 }: HidUsagePickerProps) => {
+  const labelId = useId();
   const mods = useMemo(() => {
-    let flags = value ? value >> 24 : 0;
+    const flags = value ? value >> 24 : 0;
 
     return all_mods.filter((m) => m & flags).map((m) => m.toLocaleString());
   }, [value]);
@@ -125,13 +126,13 @@ export const HidUsagePicker = ({
     (e: Key | null) => {
       let value = typeof e == "number" ? e : undefined;
       if (value !== undefined) {
-        let mod_flags = mods_to_flags(mods.map((m) => parseInt(m)));
+        const mod_flags = mods_to_flags(mods.map((m) => parseInt(m)));
         value = value | (mod_flags << 24);
       }
 
       onValueChanged(value);
     },
-    [onValueChanged, mods]
+    [onValueChanged, mods],
   );
 
   const modifiersChanged = useCallback(
@@ -140,31 +141,37 @@ export const HidUsagePicker = ({
         return;
       }
 
-      let mod_flags = mods_to_flags(m.map((m) => parseInt(m)));
-      let new_value = mask_mods(value) | (mod_flags << 24);
+      const mod_flags = mods_to_flags(m.map((m) => parseInt(m)));
+      const new_value = mask_mods(value) | (mod_flags << 24);
       onValueChanged(new_value);
     },
-    [value]
+    [onValueChanged, value],
   );
 
   return (
-    <div className="flex gap-2 relative">
-      {label && <Label id="hid-usage-picker">{label}:</Label>}
+    <div className="grid gap-3">
+      {label && (
+        <Label id={labelId} className="text-sm font-semibold">
+          {label}
+        </Label>
+      )}
       <ComboBox
+        className="min-w-0"
         selectedKey={value ? mask_mods(value) : null}
         onSelectionChange={selectionChanged}
-        aria-labelledby="hid-usage-picker"
+        aria-labelledby={label ? labelId : undefined}
+        aria-label={label ? undefined : "HID usage"}
       >
-        <div className="flex">
-          <Input className="p-1 rounded-l" />
-          <Button className="rounded-r bg-primary text-primary-content w-8 h-8 flex justify-center items-center">
-            <ChevronDown className="size-4" />
+        <div className="flex min-w-0">
+          <Input className="min-h-11 min-w-0 flex-1 rounded-l-lg border border-r-0 border-line bg-raised px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-focus" />
+          <Button className="flex min-h-11 min-w-11 items-center justify-center rounded-r-lg border border-line bg-raised text-base-content transition hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus">
+            <ChevronDown aria-hidden="true" className="size-4" />
           </Button>
         </div>
-        <Popover className="w-[var(--trigger-width)] max-h-4 shadow-md text-base-content rounded border-base-content bg-base-100">
+        <Popover className="max-h-[min(28rem,var(--available-height))] w-[var(--trigger-width)] overflow-hidden rounded-xl border border-line bg-raised text-base-content shadow-xl outline-none">
           <ListBox
             items={usagePages}
-            className="block max-h-[30vh] min-h-[unset] overflow-auto p-2"
+            className="block max-h-[min(26rem,var(--available-height))] min-h-[unset] overflow-auto p-2 outline-none"
             selectionMode="single"
           >
             {({ id, min, max }) => <UsageSection id={id} min={min} max={max} />}
@@ -173,7 +180,7 @@ export const HidUsagePicker = ({
       </ComboBox>
       <CheckboxGroup
         aria-label="Implicit Modifiers"
-        className="grid grid-flow-col gap-x-px auto-cols-[minmax(min-content,1fr)] content-stretch divide-x rounded-md"
+        className="grid grid-cols-4 gap-1"
         value={mods}
         onChange={modifiersChanged}
       >
@@ -181,7 +188,7 @@ export const HidUsagePicker = ({
           <Checkbox
             key={m}
             value={m.toLocaleString()}
-            className="text-nowrap cursor-pointer grid px-2 content-center justify-center rac-selected:bg-primary border-base-100 bg-base-300 hover:bg-base-100 first:rounded-s-md last:rounded-e-md rac-selected:text-primary-content"
+            className="grid min-h-9 cursor-pointer place-items-center rounded-md border border-line bg-base-100 px-1 text-center text-[0.625rem] font-semibold text-base-content/60 outline-none transition hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:border-primary rac-selected:bg-primary/10 rac-selected:text-primary"
           >
             {mod_labels[m]}
           </Checkbox>

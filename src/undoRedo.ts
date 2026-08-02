@@ -1,4 +1,4 @@
-import { createContext, useMemo, useState } from "react";
+import { createContext, useCallback, useMemo, useState } from "react";
 
 export type UndoCallback = () => Promise<void>;
 
@@ -10,26 +10,26 @@ export function useUndoRedo(): [
   () => Promise<void>,
   boolean,
   boolean,
-  () => void
+  () => void,
 ] {
   const [locked, setLocked] = useState<boolean>(false);
   const [undoStack, setUndoStack] = useState<Array<[DoCallback, UndoCallback]>>(
-    []
+    [],
   );
   const [redoStack, setRedoStack] = useState<Array<DoCallback>>([]);
 
   const canUndo = useMemo(
     () => !locked && undoStack.length > 0,
-    [locked, undoStack]
+    [locked, undoStack],
   );
   const canRedo = useMemo(
     () => !locked && redoStack.length > 0,
-    [locked, redoStack]
+    [locked, redoStack],
   );
 
   const doIt = async (doCb: DoCallback, preserveRedo?: boolean) => {
     setLocked(true);
-    let undo = await doCb();
+    const undo = await doCb();
 
     setUndoStack([[doCb, undo], ...undoStack]);
     if (!preserveRedo) {
@@ -48,7 +48,7 @@ export function useUndoRedo(): [
     }
 
     setLocked(true);
-    let [doCb, undoCb] = undoStack[0];
+    const [doCb, undoCb] = undoStack[0];
     setUndoStack(undoStack.slice(1));
     setRedoStack([doCb, ...redoStack]);
 
@@ -66,17 +66,17 @@ export function useUndoRedo(): [
       throw new Error("redo invoked with no operations to redo");
     }
 
-    let doCb = redoStack[0];
+    const doCb = redoStack[0];
 
     setRedoStack(redoStack.slice(1));
 
     return await doIt(doCb, true);
   };
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setRedoStack([]);
     setUndoStack([]);
-  };
+  }, []);
 
   return [doIt, undo, redo, canUndo, canRedo, reset];
 }

@@ -179,34 +179,57 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
   const ref = useModalRef(open, true);
 
   return (
-    <GenericModal ref={ref} className="min-w-min w-[70vw]" onClose={onClose}>
-      <div className="flex justify-between items-start">
-        <p>
-          The ZMK Project:{" "}
-          <ExternalLink href="https://zmk.dev/">website</ExternalLink>,{" "}
-          <ExternalLink href="https://github.com/zmkfirmware/zmk/issues/">
-            GitHub Issues
-          </ExternalLink>
-          ,{" "}
-          <ExternalLink href="https://zmk.dev/community/discord/invite">
-            Discord Server
-          </ExternalLink>
-        </p>
+    <GenericModal
+      ref={ref}
+      className="max-h-[min(50rem,calc(100vh-2rem))] w-[min(52rem,calc(100vw-2rem))] min-w-min overflow-y-auto"
+      onClose={onClose}
+    >
+      <div className="flex items-start justify-between gap-6 border-b border-line pb-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            Wafer Studio
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">
+            A calmer way to shape your keyboard
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-base-content/65">
+            Wafer Studio is a Wafer-designed configurator compatible with ZMK
+            Studio-enabled keyboards. It uses the official ZMK Studio protocol
+            and TypeScript client, and is an independent product rather than an
+            official ZMK application.
+          </p>
+          <dl className="mt-4 grid max-w-xl grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <dt className="text-base-content/50">Studio client</dt>
+            <dd className="font-mono tabular-nums">0.0.18</dd>
+            <dt className="text-base-content/50">Compatibility</dt>
+            <dd>Official ZMK Studio RPC</dd>
+          </dl>
+        </div>
         <button
-          className="p-1.5 rounded-md bg-gray-100 text-black hover:bg-gray-300"
+          className="min-h-11 shrink-0 rounded-lg border border-line bg-raised px-4 text-sm font-semibold hover:bg-base-300"
           onClick={onClose}
         >
           Close
         </button>
       </div>
-      <div>
-        <p className="py-1 mr-2">
-          ZMK Studio is made possible thanks to the generous donation of time
-          from our contributors, as well as the financial sponsorship from the
-          following vendors:
+
+      <div className="py-5">
+        <h2 className="font-semibold">Open-source foundation</h2>
+        <p className="mt-2 text-sm leading-relaxed text-base-content/65">
+          The ZMK Project:{" "}
+          <ExternalLink href="https://zmk.dev/">website</ExternalLink>,{" "}
+          <ExternalLink href="https://github.com/zmkfirmware/zmk/issues/">
+            GitHub issues
+          </ExternalLink>
+          , and{" "}
+          <ExternalLink href="https://zmk.dev/community/discord/invite">
+            community Discord
+          </ExternalLink>
+          . The official ZMK Studio interface is made possible by its
+          contributors and the following sponsors.
         </p>
       </div>
-      <div className="grid gap-2 auto-rows-auto grid-cols-[auto_minmax(min-content,1fr)] justify-items-center items-center">
+      <div className="grid auto-rows-auto grid-cols-[auto_minmax(min-content,1fr)] items-center justify-items-center gap-2 rounded-xl border border-line bg-base-100 p-4">
         {sponsors.map((s) => {
           const heightVariants = {
             [SponsorSize.Large]: "h-16",

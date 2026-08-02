@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { Key } from "./Key";
+import type { LayoutZoom } from "./layoutZoom";
 
 export type KeyPosition = PropsWithChildren<{
   id: string;
@@ -18,15 +19,6 @@ export type KeyPosition = PropsWithChildren<{
   rx?: number;
   ry?: number;
 }>;
-
-export type LayoutZoom = number | "auto";
-
-export function deserializeLayoutZoom(value: string): LayoutZoom {
-  if (value === "auto") {
-    return "auto";
-  }
-  return parseFloat(value) || "auto";
-}
 
 interface PhysicalLayoutProps {
   positions: Array<KeyPosition>;
@@ -49,8 +41,8 @@ function scalePosition(
   { x, y, r, rx, ry }: PhysicalLayoutPositionLocation,
   oneU: number,
 ): CSSProperties {
-  let left = x * oneU;
-  let top = y * oneU;
+  const left = x * oneU;
+  const top = y * oneU;
   let transformOrigin = undefined;
   let transform = undefined;
   const transformStyle = "preserve-3d";
@@ -59,8 +51,8 @@ function scalePosition(
     // Use `??` so an explicit rotation origin of 0 is honored; `rx || x`
     // collapsed a legitimate 0 back to the key's own position, pivoting the
     // key around its own corner instead of the layout origin (#97).
-    let transformX = ((rx ?? x) - x) * oneU;
-    let transformY = ((ry ?? y) - y) * oneU;
+    const transformX = ((rx ?? x) - x) * oneU;
+    const transformY = ((ry ?? y) - y) * oneU;
     transformOrigin = `${transformX}px ${transformY}px`;
     transform = `rotate(${r}deg)`;
   }
@@ -78,21 +70,23 @@ export const PhysicalLayout = ({
   positions,
   selectedPosition,
   oneU = 48,
+  hoverZoom = false,
+  zoom,
   onPositionClicked,
-  ...props
 }: PhysicalLayoutProps) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
-    const element = ref.current;
+    const element = layoutRef.current;
     if (!element) return;
 
-    const parent = element.parentElement;
+    const parent = wrapperRef.current?.parentElement;
     if (!parent) return;
 
     const calculateScale = () => {
-      if (props.zoom === "auto") {
+      if (zoom === "auto") {
         const padding = Math.min(window.innerWidth, window.innerHeight) * 0.05; // Padding when in auto mode
         const newScale = Math.min(
           parent.clientWidth / (element.clientWidth + 2 * padding),
@@ -100,7 +94,7 @@ export const PhysicalLayout = ({
         );
         setScale(newScale);
       } else {
-        setScale(props.zoom || 1);
+        setScale(zoom || 1);
       }
     };
 
@@ -116,44 +110,59 @@ export const PhysicalLayout = ({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [props.zoom]);
+  }, [zoom]);
 
   // TODO: Add a bit of padding for rotation when supported
-  let rightMost = positions
+  const rightMost = positions
     .map((k) => k.x + k.width)
     .reduce((a, b) => Math.max(a, b), 0);
-  let bottomMost = positions
+  const bottomMost = positions
     .map((k) => k.y + k.height)
     .reduce((a, b) => Math.max(a, b), 0);
 
-  const positionItems = positions.map((p, idx) => (
-    <div className="absolute hover:z-10" style={scalePosition(p, oneU)}>
-      <div
-        key={p.id}
-        onClick={() => onPositionClicked?.(idx)}
+  const positionItems = positions.map(({ children, ...position }, idx) => (
+    <div
+      key={position.id}
+      className="absolute hover:z-10 focus-within:z-20"
+      style={scalePosition(position, oneU)}
+    >
+      <Key
+        oneU={oneU}
+        selected={idx === selectedPosition}
+        onClick={onPositionClicked ? () => onPositionClicked(idx) : undefined}
+        {...position}
       >
-        <Key
-          oneU={oneU}
-          selected={idx === selectedPosition}
-          {...p}
-        />
-      </div>
+        {children}
+        {onPositionClicked && (
+          <span className="sr-only">Key position {idx + 1}</span>
+        )}
+      </Key>
     </div>
   ));
 
   return (
     <div
-      className="relative"
+      ref={wrapperRef}
       style={{
-        height: bottomMost * oneU + "px",
-        width: rightMost * oneU + "px",
-        transform: `scale(${scale})`,
-        transformStyle: "preserve-3d",
+        height: bottomMost * oneU * scale + "px",
+        width: rightMost * oneU * scale + "px",
       }}
-      ref={ref}
-      {...props}
+      data-hover-zoom={hoverZoom || undefined}
+      role="group"
+      aria-label="Keyboard layout"
     >
-      {positionItems}
+      <div
+        ref={layoutRef}
+        className="relative origin-top-left"
+        style={{
+          height: bottomMost * oneU + "px",
+          width: rightMost * oneU + "px",
+          transform: `scale(${scale})`,
+          transformStyle: "preserve-3d",
+        }}
+      >
+        {positionItems}
+      </div>
     </div>
   );
 };
