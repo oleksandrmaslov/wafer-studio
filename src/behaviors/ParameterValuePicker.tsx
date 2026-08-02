@@ -23,11 +23,11 @@ export const ParameterValuePicker = ({
     return <></>;
   } else if (values.every((v) => v.constant !== undefined)) {
     return (
-      <fieldset className="grid gap-2">
-        <legend className="text-sm font-semibold">
+      <fieldset className="grid gap-1.5">
+        <legend className="text-sm font-medium">
           {label || "Choose an option"}
         </legend>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {values.map((option) => {
             const isSelected = value === option.constant;
 
@@ -36,7 +36,7 @@ export const ParameterValuePicker = ({
                 key={`${option.name}-${option.constant}`}
                 type="button"
                 aria-pressed={isSelected}
-                className="min-h-11 rounded-lg border border-line bg-raised px-3 py-2 text-left text-xs font-semibold leading-tight text-base-content transition hover:border-primary/60 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-focus aria-pressed:border-primary aria-pressed:bg-primary/10 aria-pressed:text-primary"
+                className="min-h-10 rounded-[var(--radius-control)] bg-hover/35 px-2.5 py-1.5 text-left text-xs font-medium leading-tight text-ink outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus aria-pressed:bg-selected aria-pressed:text-accent-foreground aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-wafer/30"
                 onClick={() => onValueChanged(option.constant)}
               >
                 {option.name}
@@ -48,11 +48,11 @@ export const ParameterValuePicker = ({
     );
   } else if (values.every((v) => v.layerId !== undefined)) {
     return (
-      <fieldset className="grid gap-2">
-        <legend className="text-sm font-semibold">
+      <fieldset className="grid gap-1.5">
+        <legend className="text-sm font-medium">
           {label || values[0]?.name || "Layer"}
         </legend>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {layers.map(({ name, id }) => {
             const isSelected = value === id;
 
@@ -61,7 +61,7 @@ export const ParameterValuePicker = ({
                 key={id}
                 type="button"
                 aria-pressed={isSelected}
-                className="min-h-11 rounded-lg border border-line bg-raised px-3 py-2 text-left text-xs font-semibold text-base-content transition hover:border-primary/60 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-focus aria-pressed:border-primary aria-pressed:bg-primary/10 aria-pressed:text-primary"
+                className="min-h-10 rounded-[var(--radius-control)] bg-hover/35 px-2.5 py-1.5 text-left text-xs font-medium text-ink outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-focus aria-pressed:bg-selected aria-pressed:text-accent-foreground aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-wafer/30"
                 onClick={() => onValueChanged(id)}
               >
                 {name}
@@ -79,13 +79,13 @@ export const ParameterValuePicker = ({
       return (
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <label className="text-sm font-semibold" htmlFor={rangeId}>
+            <label className="text-sm font-medium" htmlFor={rangeId}>
               {label || values[0].name}
             </label>
             <input
               aria-label={`${label || values[0].name} value`}
               type="number"
-              className="min-h-9 w-20 rounded-lg border border-line bg-raised px-2 text-right font-mono text-xs tabular-nums text-base-content outline-none transition hover:border-base-content/30 focus-visible:ring-2 focus-visible:ring-focus"
+              className="min-h-10 w-20 rounded-[var(--radius-control)] border border-line bg-overlay px-2 text-right font-mono text-xs tabular-nums text-ink outline-none transition-colors hover:border-line-strong focus-visible:ring-2 focus-visible:ring-focus"
               min={min}
               max={max}
               value={rangeValue}
@@ -101,7 +101,7 @@ export const ParameterValuePicker = ({
             id={rangeId}
             aria-label={label || values[0].name}
             type="range"
-            className="h-6 w-full accent-primary"
+            className="h-10 w-full accent-primary"
             min={min}
             max={max}
             value={rangeValue}
@@ -109,7 +109,7 @@ export const ParameterValuePicker = ({
               onValueChanged(event.currentTarget.valueAsNumber)
             }
           />
-          <div className="flex justify-between font-mono text-[0.625rem] tabular-nums text-base-content/45">
+          <div className="flex justify-between font-mono text-[0.625rem] tabular-nums text-tertiary">
             <span>{min}</span>
             <span>{max}</span>
           </div>
@@ -130,9 +130,9 @@ export const ParameterValuePicker = ({
     }
   } else {
     return (
-      <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+      <div className="rounded-[var(--radius-surface)] border border-warning/25 bg-warning/10 p-2.5 text-sm">
         <p className="font-semibold text-warning">Advanced parameter shape</p>
-        <p className="mt-1 text-xs leading-relaxed text-base-content/65">
+        <p className="mt-1 text-xs leading-relaxed text-muted">
           This firmware reports multiple parameter variants. Raw editing for
           this shape is not available in the current preview.
         </p>

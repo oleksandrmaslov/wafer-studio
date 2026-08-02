@@ -73,7 +73,7 @@ const EditLabelModal = ({
       className="flex w-[min(28rem,calc(100vw-2rem))] min-w-min flex-col"
     >
       <span className="mb-1 text-lg font-semibold">Rename layer</span>
-      <p className="mb-4 text-sm text-base-content/60">
+      <p className="mb-4 text-sm text-muted">
         Use a short name that makes the layer easy to recognize on the canvas.
       </p>
       <label htmlFor="layer-name" className="mb-1 text-sm font-medium">
@@ -81,7 +81,7 @@ const EditLabelModal = ({
       </label>
       <input
         id="layer-name"
-        className="min-h-11 rounded-lg border border-line bg-raised px-3 text-base-content"
+        className="min-h-10 rounded-[var(--radius-control)] border border-line bg-overlay px-3 text-ink outline-none transition-colors hover:border-line-strong focus-visible:ring-2 focus-visible:ring-focus"
         type="text"
         defaultValue={editLabelData.name}
         autoFocus
@@ -95,14 +95,14 @@ const EditLabelModal = ({
       />
       <div className="mt-5 flex justify-end gap-2">
         <button
-          className="min-h-11 rounded-lg px-4 text-sm font-semibold hover:bg-base-300"
+          className="min-h-10 rounded-[var(--radius-control)] px-4 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-ink"
           type="button"
           onClick={onClose}
         >
           Cancel
         </button>
         <button
-          className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-content hover:bg-wafer-deep"
+          className="min-h-10 rounded-[var(--radius-control)] bg-primary px-4 text-sm font-semibold text-primary-content transition-colors hover:bg-wafer-deep"
           type="button"
           onClick={() => {
             handleSave();
@@ -183,8 +183,8 @@ export const LayerPicker = ({
 
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="mb-2 grid grid-cols-[1fr_auto_auto] items-center gap-1">
-        <Label className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-base-content/55">
+      <div className="mb-1.5 grid grid-cols-[1fr_auto_auto] items-center gap-0.5">
+        <Label className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted">
           Layers
         </Label>
         {onRemoveClicked && (
@@ -192,7 +192,7 @@ export const LayerPicker = ({
             type="button"
             aria-label="Remove selected layer"
             title="Remove selected layer"
-            className="grid size-9 place-items-center rounded-lg border border-transparent text-base-content/60 transition enabled:hover:border-line enabled:hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-35"
+            className="grid size-10 place-items-center rounded-[var(--radius-control)] text-muted transition-colors enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
             disabled={!canRemove || isStructureDisabled}
             onClick={onRemoveClicked}
           >
@@ -211,7 +211,7 @@ export const LayerPicker = ({
                   : "No reserved layers available"
             }
             disabled={!canAdd || isStructureDisabled}
-            className="grid size-9 place-items-center rounded-lg border border-transparent text-base-content/60 transition enabled:hover:border-line enabled:hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-35"
+            className="grid size-10 place-items-center rounded-[var(--radius-control)] text-muted transition-colors enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
             onClick={onAddClicked}
           >
             <Plus className="size-4" />
@@ -238,8 +238,8 @@ export const LayerPicker = ({
         }
         className={
           orientation === "horizontal"
-            ? "grid cursor-pointer auto-cols-[minmax(8.5rem,10rem)] grid-flow-col gap-1 overflow-x-auto pb-1"
-            : "grid cursor-pointer gap-1 max-md:auto-cols-[minmax(9rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1"
+            ? "grid cursor-pointer auto-cols-[minmax(7.25rem,8.75rem)] grid-flow-col gap-0.5 overflow-x-auto pb-1"
+            : "grid cursor-pointer gap-0.5 max-md:auto-cols-[minmax(8rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1"
         }
         onSelectionChange={selectionChanged}
         dragAndDropHooks={dragAndDropHooks}
@@ -248,13 +248,13 @@ export const LayerPicker = ({
         {(layer_item) => (
           <ListBoxItem
             textValue={layer_item.name}
-            className="group grid min-h-11 grid-cols-[auto_auto_1fr_auto] items-center gap-1 rounded-lg border border-transparent px-1.5 text-sm outline-none transition hover:border-line hover:bg-base-100 rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:border-primary/25 rac-selected:bg-primary/10 rac-selected:text-primary"
+            className="group grid min-h-10 grid-cols-[auto_auto_1fr_auto] items-center gap-1 rounded-[var(--radius-control)] px-1 text-sm outline-none transition-colors hover:bg-hover rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:bg-selected/80 rac-selected:text-accent-foreground"
           >
             <GripVertical
               aria-hidden="true"
-              className="size-3.5 text-base-content/25"
+              className="size-3.5 text-tertiary/55"
             />
-            <span className="grid size-6 place-items-center rounded-md border border-line bg-raised font-mono text-[0.625rem] text-base-content/55">
+            <span className="grid size-5 place-items-center font-mono text-[0.625rem] text-tertiary">
               {layer_item.index}
             </span>
             <span className="truncate font-medium">{layer_item.name}</span>
@@ -262,7 +262,7 @@ export const LayerPicker = ({
               type="button"
               aria-label={`Rename ${layer_item.name}`}
               disabled={isStructureDisabled}
-              className="grid size-8 place-items-center rounded-md text-base-content/45 opacity-0 transition hover:bg-base-300 hover:text-base-content focus:opacity-100 group-hover:opacity-100"
+              className="grid size-10 place-items-center rounded-[var(--radius-control)] text-tertiary opacity-0 transition-[color,background-color,opacity] hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100"
               onClick={(event) => {
                 event.stopPropagation();
                 setEditLabelData({

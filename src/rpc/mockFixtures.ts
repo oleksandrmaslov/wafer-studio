@@ -19,24 +19,36 @@ export const WAFER_BEHAVIOR_IDS = {
   keyPress: 10,
   transparent: 11,
   none: 12,
+  keyToggle: 101,
+  stickyKey: 115,
+  graveEscape: 127,
   momentaryLayer: 20,
   toggleLayer: 21,
+  toLayer: 223,
+  stickyLayer: 239,
   bluetooth: 30,
   outputSelection: 31,
   modTap: 40,
   layerTap: 41,
   mouseClick: 50,
+  mouseMove: 503,
+  mouseScroll: 509,
   rgbUnderglow: 60,
+  backlight: 607,
   externalPower: 70,
+  reset: 701,
+  bootloader: 709,
+  studioUnlock: 733,
   capsWord: 80,
   keyRepeat: 81,
   softOff: 82,
+  copyLineMacro: 907,
+  bracketTapDance: 919,
 } as const;
 
 const KEY_COUNT = 42;
 const KEYBOARD_PAGE = 0x07;
 const CONSUMER_PAGE = 0x0c;
-const BUTTON_PAGE = 0x09;
 
 const hid = (page: number, usage: number) => page * 0x10000 + usage;
 const keyboard = (usage: number) => hid(KEYBOARD_PAGE, usage);
@@ -224,15 +236,22 @@ function createMediaBindings(): BehaviorBinding[] {
   bindings[18] = keyPress(consumer(0x00e2)); // Mute
   bindings[19] = keyPress(consumer(0x00ea)); // Volume down
   bindings[20] = keyPress(consumer(0x00e9)); // Volume up
-  bindings[24] = binding(WAFER_BEHAVIOR_IDS.mouseClick, hid(BUTTON_PAGE, 1));
-  bindings[25] = binding(WAFER_BEHAVIOR_IDS.mouseClick, hid(BUTTON_PAGE, 2));
-  bindings[26] = binding(WAFER_BEHAVIOR_IDS.mouseClick, hid(BUTTON_PAGE, 3));
+  bindings[24] = binding(WAFER_BEHAVIOR_IDS.mouseClick, 1);
+  bindings[25] = binding(WAFER_BEHAVIOR_IDS.mouseClick, 2);
+  bindings[26] = binding(WAFER_BEHAVIOR_IDS.mouseClick, 4);
+  bindings[27] = binding(WAFER_BEHAVIOR_IDS.backlight, 2);
+  bindings[28] = binding(WAFER_BEHAVIOR_IDS.copyLineMacro);
+  bindings[29] = binding(WAFER_BEHAVIOR_IDS.bracketTapDance);
   bindings[30] = binding(WAFER_BEHAVIOR_IDS.rgbUnderglow, 0);
-  bindings[31] = binding(WAFER_BEHAVIOR_IDS.rgbUnderglow, 1);
-  bindings[32] = binding(WAFER_BEHAVIOR_IDS.rgbUnderglow, 2);
+  bindings[31] = binding(WAFER_BEHAVIOR_IDS.rgbUnderglow, 7);
+  bindings[32] = binding(WAFER_BEHAVIOR_IDS.rgbUnderglow, 8);
   bindings[33] = binding(WAFER_BEHAVIOR_IDS.externalPower, 2);
+  bindings[34] = binding(WAFER_BEHAVIOR_IDS.graveEscape);
+  bindings[35] = binding(WAFER_BEHAVIOR_IDS.outputSelection, 0);
   bindings[36] = binding(WAFER_BEHAVIOR_IDS.bluetooth, 1);
   bindings[37] = binding(WAFER_BEHAVIOR_IDS.bluetooth, 2);
+  bindings[38] = binding(WAFER_BEHAVIOR_IDS.stickyKey, keyboard(225));
+  bindings[39] = binding(WAFER_BEHAVIOR_IDS.keyToggle, keyboard(57));
   bindings[40] = binding(WAFER_BEHAVIOR_IDS.capsWord);
   bindings[41] = binding(WAFER_BEHAVIOR_IDS.keyRepeat);
   return bindings;
@@ -272,6 +291,21 @@ function createBehaviors(): GetBehaviorDetailsResponse[] {
       metadata: noParameters,
     },
     {
+      id: WAFER_BEHAVIOR_IDS.keyToggle,
+      displayName: "Key Toggle",
+      metadata: [{ param1: [keyUsage], param2: [] }],
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.stickyKey,
+      displayName: "Sticky Key",
+      metadata: [{ param1: [keyUsage], param2: [] }],
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.graveEscape,
+      displayName: "Grave/Escape",
+      metadata: noParameters,
+    },
+    {
       id: WAFER_BEHAVIOR_IDS.momentaryLayer,
       displayName: "Momentary Layer",
       metadata: [{ param1: [layer], param2: [] }],
@@ -282,22 +316,32 @@ function createBehaviors(): GetBehaviorDetailsResponse[] {
       metadata: [{ param1: [layer], param2: [] }],
     },
     {
+      id: WAFER_BEHAVIOR_IDS.toLayer,
+      displayName: "To Layer",
+      metadata: [{ param1: [layer], param2: [] }],
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.stickyLayer,
+      displayName: "Sticky Layer",
+      metadata: [{ param1: [layer], param2: [] }],
+    },
+    {
       id: WAFER_BEHAVIOR_IDS.bluetooth,
       displayName: "Bluetooth",
       metadata: [
         {
           param1: [
-            { name: "Clear profile", constant: 0 },
-            { name: "Next profile", constant: 1 },
-            { name: "Previous profile", constant: 2 },
-            { name: "Clear all profiles", constant: 4 },
+            { name: "Clear Selected Profile", constant: 0 },
+            { name: "Next Profile", constant: 1 },
+            { name: "Previous Profile", constant: 2 },
+            { name: "Clear All Profiles", constant: 4 },
           ],
-          param2: [{ name: "Unused", nil: {} }],
+          param2: [],
         },
         {
           param1: [
-            { name: "Select profile", constant: 3 },
-            { name: "Disconnect profile", constant: 5 },
+            { name: "Select Profile", constant: 3 },
+            { name: "Disconnect Profile", constant: 5 },
           ],
           param2: [{ name: "Profile", range: { min: 0, max: 4 } }],
         },
@@ -309,9 +353,10 @@ function createBehaviors(): GetBehaviorDetailsResponse[] {
       metadata: [
         {
           param1: [
-            { name: "USB", constant: 0 },
-            { name: "Bluetooth", constant: 1 },
-            { name: "Toggle", constant: 2 },
+            { name: "Toggle Outputs", constant: 0 },
+            { name: "USB Output", constant: 1 },
+            { name: "BLE Output", constant: 2 },
+            { name: "No Output", constant: 3 },
           ],
           param2: [],
         },
@@ -329,34 +374,71 @@ function createBehaviors(): GetBehaviorDetailsResponse[] {
     },
     {
       id: WAFER_BEHAVIOR_IDS.mouseClick,
-      displayName: "Mouse Click",
+      displayName: "Mouse Key Press",
       metadata: [
         {
           param1: [
-            { name: "Left button", constant: hid(BUTTON_PAGE, 1) },
-            { name: "Right button", constant: hid(BUTTON_PAGE, 2) },
-            { name: "Middle button", constant: hid(BUTTON_PAGE, 3) },
-            { name: "Back button", constant: hid(BUTTON_PAGE, 4) },
-            { name: "Forward button", constant: hid(BUTTON_PAGE, 5) },
+            { name: "MB1", constant: 1 },
+            { name: "MB2", constant: 2 },
+            { name: "MB3", constant: 4 },
+            { name: "MB4", constant: 8 },
+            { name: "MB5", constant: 16 },
           ],
           param2: [],
         },
       ],
     },
     {
+      id: WAFER_BEHAVIOR_IDS.mouseMove,
+      displayName: "Mouse Move",
+      metadata: [],
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.mouseScroll,
+      displayName: "Mouse Scroll",
+      metadata: [],
+    },
+    {
       id: WAFER_BEHAVIOR_IDS.rgbUnderglow,
-      displayName: "RGB Underglow",
+      displayName: "Underglow",
       metadata: [
         {
           param1: [
-            { name: "Toggle", constant: 0 },
-            { name: "Brightness up", constant: 1 },
-            { name: "Brightness down", constant: 2 },
+            { name: "Toggle On/Off", constant: 0 },
+            { name: "Turn On", constant: 1 },
+            { name: "Turn OFF", constant: 2 },
+            { name: "Hue Up", constant: 3 },
+            { name: "Hue Down", constant: 4 },
+            { name: "Saturation Up", constant: 5 },
+            { name: "Saturation Down", constant: 6 },
+            { name: "Brightness Up", constant: 7 },
+            { name: "Brightness Down", constant: 8 },
+            { name: "Speed Up", constant: 9 },
+            { name: "Speed Down", constant: 10 },
+            { name: "Next Effect", constant: 11 },
+            { name: "Previous Effect", constant: 12 },
+          ],
+          param2: [],
+        },
+      ],
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.backlight,
+      displayName: "Backlight",
+      metadata: [
+        {
+          param1: [
+            { name: "Toggle On/Off", constant: 2 },
+            { name: "Turn On", constant: 0 },
+            { name: "Turn OFF", constant: 1 },
+            { name: "Increase Brightness", constant: 3 },
+            { name: "Decrease Brightness", constant: 4 },
+            { name: "Cycle Brightness", constant: 5 },
           ],
           param2: [],
         },
         {
-          param1: [{ name: "Set brightness", constant: 3 }],
+          param1: [{ name: "Set Brightness", constant: 6 }],
           param2: [{ name: "Brightness", range: { min: 0, max: 100 } }],
         },
       ],
@@ -364,16 +446,22 @@ function createBehaviors(): GetBehaviorDetailsResponse[] {
     {
       id: WAFER_BEHAVIOR_IDS.externalPower,
       displayName: "External Power",
-      metadata: [
-        {
-          param1: [
-            { name: "Off", constant: 0 },
-            { name: "On", constant: 1 },
-            { name: "Toggle", constant: 2 },
-          ],
-          param2: [],
-        },
-      ],
+      metadata: [],
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.reset,
+      displayName: "Reset",
+      metadata: noParameters,
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.bootloader,
+      displayName: "Bootloader",
+      metadata: noParameters,
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.studioUnlock,
+      displayName: "Studio Unlock",
+      metadata: noParameters,
     },
     {
       id: WAFER_BEHAVIOR_IDS.capsWord,
@@ -388,6 +476,16 @@ function createBehaviors(): GetBehaviorDetailsResponse[] {
     {
       id: WAFER_BEHAVIOR_IDS.softOff,
       displayName: "Soft Off",
+      metadata: noParameters,
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.copyLineMacro,
+      displayName: "Copy Line Macro",
+      metadata: noParameters,
+    },
+    {
+      id: WAFER_BEHAVIOR_IDS.bracketTapDance,
+      displayName: "Bracket Tap Dance",
       metadata: noParameters,
     },
   ];

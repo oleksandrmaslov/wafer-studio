@@ -257,7 +257,7 @@ export function HidUsageGrid({
     );
   };
 
-  const rootClassName = ["grid gap-5", className].filter(Boolean).join(" ");
+  const rootClassName = ["grid gap-4", className].filter(Boolean).join(" ");
   const selectionDescription = actionDescription(selectedAction, modifierMask);
 
   return (
@@ -267,7 +267,7 @@ export function HidUsageGrid({
           <label htmlFor={`${instanceId}-hid-search`} className="sr-only">
             Search keys and controls
           </label>
-          <div className="flex min-h-11 items-center rounded-lg border border-line bg-raised text-base-content transition focus-within:border-base-content/30 focus-within:ring-2 focus-within:ring-focus">
+          <div className="flex min-h-10 items-center rounded-control border border-line-subtle bg-raised text-base-content transition focus-within:border-line-strong focus-within:ring-2 focus-within:ring-focus">
             <Search
               aria-hidden="true"
               className="ml-3 size-4 shrink-0 text-base-content/45"
@@ -313,7 +313,7 @@ export function HidUsageGrid({
         id={`${instanceId}-hid-catalog`}
         role="group"
         aria-label={ariaLabel}
-        className="grid gap-6"
+        className="grid gap-4"
       >
         {sections.map((section) => {
           const category = HID_ACTION_CATEGORY_BY_ID[section.id];
@@ -321,10 +321,10 @@ export function HidUsageGrid({
 
           return (
             <section key={section.id} aria-labelledby={headingId}>
-              <div className="mb-2 flex items-baseline justify-between gap-3">
+              <div className="mb-1.5 flex items-baseline justify-between gap-3">
                 <h3
                   id={headingId}
-                  className="text-sm font-semibold text-base-content"
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-muted"
                 >
                   {category.label}
                 </h3>
@@ -332,7 +332,7 @@ export function HidUsageGrid({
                   {section.items.length}
                 </span>
               </div>
-              <ul className="grid grid-cols-[repeat(auto-fill,minmax(3.75rem,1fr))] gap-2">
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(3rem,1fr))] gap-1.5">
                 {section.items.map((action) => {
                   const selected = selectedAction?.id === action.id;
 
@@ -350,10 +350,10 @@ export function HidUsageGrid({
                         onFocus={() => setActiveActionId(action.id)}
                         onKeyDown={handleActionKeyDown}
                         onClick={() => selectAction(action)}
-                        className={`grid min-h-14 w-full min-w-0 place-items-center rounded-lg border px-2 py-2 text-center text-xs font-semibold leading-tight outline-none transition focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-base-200 disabled:cursor-not-allowed disabled:opacity-45 ${
+                        className={`grid min-h-11 w-full min-w-0 place-items-center rounded-control border px-1.5 py-1.5 text-center text-[0.6875rem] font-semibold leading-tight outline-none transition focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-base-200 disabled:cursor-not-allowed disabled:opacity-45 ${
                           selected
-                            ? "border-primary bg-primary/10 text-primary shadow-sm"
-                            : "border-line bg-base-100 text-base-content/75 hover:border-base-content/30 hover:bg-base-300 hover:text-base-content"
+                            ? "border-line-strong bg-selected text-accent-foreground"
+                            : "border-line-subtle bg-transparent text-base-content/75 hover:border-line hover:bg-hover hover:text-base-content"
                         }`}
                       >
                         <span className="max-w-full break-words">
@@ -381,7 +381,7 @@ export function HidUsageGrid({
       </div>
 
       {showModifiers && (
-        <fieldset className="grid gap-2 border-t border-line pt-4">
+        <fieldset className="grid gap-2 border-t border-line-subtle pt-3">
           <legend className="px-1 text-sm font-semibold text-base-content">
             Chord modifiers
           </legend>
@@ -404,8 +404,8 @@ export function HidUsageGrid({
                   onClick={() => toggleModifier(modifier.mask)}
                   className={`grid min-h-10 place-items-center rounded-md border px-1 text-center text-[0.625rem] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40 ${
                     pressed
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-line bg-base-100 text-base-content/60 hover:border-base-content/30 hover:bg-base-300 hover:text-base-content"
+                      ? "border-line-strong bg-selected text-accent-foreground"
+                      : "border-line-subtle bg-transparent text-base-content/60 hover:border-line hover:bg-hover hover:text-base-content"
                   }`}
                 >
                   {modifier.shortLabel}

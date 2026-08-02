@@ -33,6 +33,7 @@ import type {
   DraftApplyResult,
   KeymapDraftController,
 } from "./keyboard/keymapDraft";
+import { useWaferFinish } from "./appearance";
 
 declare global {
   interface Window {
@@ -175,6 +176,7 @@ async function connect(
 }
 
 function App() {
+  const [waferFinish, setWaferFinish] = useWaferFinish();
   const [conn, setConn] = useState<ConnectionState>({ conn: null });
   const [connectedDeviceName, setConnectedDeviceName] = useState<
     string | undefined
@@ -368,6 +370,8 @@ function App() {
               onResetSettings={resetSettings}
               onShowAbout={() => setShowAbout(true)}
               onShowLicenseNotice={() => setShowLicenseNotice(true)}
+              waferFinish={waferFinish}
+              onWaferFinishChange={setWaferFinish}
               draftCount={draftController?.draftCount || 0}
               draftChanges={draftController?.changes || []}
               draftErrors={draftController?.errors || []}

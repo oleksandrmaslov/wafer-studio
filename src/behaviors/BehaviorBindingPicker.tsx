@@ -12,26 +12,24 @@ import {
   Cable,
   ChevronLeft,
   Eye,
-  KeyboardIcon,
   Layers,
   Lightbulb,
   MousePointer2,
   Power,
   Repeat2,
-  Search,
   Sparkles,
   ToggleLeft,
   type LucideIcon,
 } from "lucide-react";
 
 import { BehaviorParametersPicker } from "./BehaviorParametersPicker";
-import {
-  describeHidUsage,
-  filterHidActionCatalogForUsagePages,
-} from "./actionCatalog";
+import { filterHidActionCatalogForUsagePages } from "./actionCatalog";
 import { HidUsageGrid } from "./HidUsageGrid";
 import { HidUsagePicker, type HidUsagePage } from "./HidUsagePicker";
 import { validateBindingParameters, validateValue } from "./parameters";
+import { ActionRow } from "../design-system/ActionRow";
+import { SearchField } from "../design-system/SearchField";
+import { SegmentedControl } from "../design-system/SegmentedControl";
 
 export interface BehaviorBindingPickerProps {
   binding: BehaviorBinding;
@@ -50,6 +48,7 @@ type ActionGroupId =
   | "pointer"
   | "lighting"
   | "power"
+  | "routines"
   | "other";
 
 interface ActionPresentation {
@@ -65,15 +64,20 @@ interface EditorState {
   param2?: number;
 }
 
-const ACTION_GROUPS: readonly { id: ActionGroupId; label: string }[] = [
-  { id: "flow", label: "Keymap flow" },
-  { id: "layers", label: "Layers" },
-  { id: "typing", label: "Typing helpers" },
-  { id: "connectivity", label: "Connectivity" },
-  { id: "pointer", label: "Mouse & pointer" },
-  { id: "lighting", label: "Lighting" },
-  { id: "power", label: "Power & system" },
-  { id: "other", label: "Other actions" },
+const ACTION_GROUPS: readonly {
+  id: ActionGroupId;
+  label: string;
+  shortLabel: string;
+}[] = [
+  { id: "flow", label: "Keymap flow", shortLabel: "Flow" },
+  { id: "layers", label: "Layers", shortLabel: "Layers" },
+  { id: "typing", label: "Typing helpers", shortLabel: "Typing" },
+  { id: "connectivity", label: "Connectivity", shortLabel: "Connect" },
+  { id: "pointer", label: "Mouse & pointer", shortLabel: "Pointer" },
+  { id: "lighting", label: "Lighting", shortLabel: "Light" },
+  { id: "power", label: "Power & system", shortLabel: "System" },
+  { id: "routines", label: "Firmware routines", shortLabel: "Routines" },
+  { id: "other", label: "Other actions", shortLabel: "Other" },
 ];
 
 function normalizeName(name: string): string {
@@ -160,6 +164,7 @@ function actionPresentation(
   }
   if (
     name.includes("caps word") ||
+    name.includes("grave escape") ||
     name.includes("repeat") ||
     name.includes("sticky") ||
     name.includes("key toggle")
@@ -211,10 +216,23 @@ function actionPresentation(
     };
   }
   if (
+    name.includes("macro") ||
+    name.includes("tap dance") ||
+    name.includes("mod morph") ||
+    name.includes("routine")
+  ) {
+    return {
+      group: "routines",
+      description: "Run an action already configured in this firmware.",
+      icon: Sparkles,
+    };
+  }
+  if (
     name.includes("power") ||
     name.includes("soft off") ||
     name.includes("reset") ||
-    name.includes("bootloader")
+    name.includes("bootloader") ||
+    name.includes("studio unlock")
   ) {
     return {
       group: "power",
@@ -335,30 +353,21 @@ function BehaviorCard({
   onSelect: () => void;
 }) {
   const presentation = actionPresentation(behavior);
-  const Icon = presentation.icon;
+  const metadataUnavailable = behavior.metadata.length === 0;
 
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      disabled={disabled}
-      onClick={onSelect}
-      className={`group grid min-h-24 grid-cols-[auto_1fr] content-center gap-x-3 rounded-xl border p-3 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45 ${
-        selected
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-line bg-base-100 text-base-content hover:border-primary/45 hover:bg-primary/5"
-      }`}
-    >
-      <span className="row-span-2 grid size-9 place-items-center rounded-lg bg-base-300 text-base-content/65 transition group-hover:text-primary">
-        <Icon aria-hidden="true" className="size-4" />
-      </span>
-      <span className="text-sm font-semibold leading-tight">
-        {behavior.displayName}
-      </span>
-      <span className="mt-1 line-clamp-2 text-[0.6875rem] leading-snug text-base-content/55">
-        {presentation.description}
-      </span>
-    </button>
+    <ActionRow
+      icon={presentation.icon}
+      title={behavior.displayName}
+      description={
+        metadataUnavailable
+          ? "This firmware does not expose Studio-editable parameters."
+          : presentation.description
+      }
+      selected={selected}
+      disabled={disabled || metadataUnavailable}
+      onPress={onSelect}
+    />
   );
 }
 
@@ -375,6 +384,11 @@ export const BehaviorBindingPicker = ({
   );
   const currentTab = tabForBehavior(currentBehavior);
   const [activeTab, setActiveTab] = useState<BrowserTab>(currentTab);
+  const [activeActionGroup, setActiveActionGroup] = useState<ActionGroupId>(
+    currentBehavior && currentTab === "actions"
+      ? actionPresentation(currentBehavior).group
+      : "flow",
+  );
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
@@ -407,7 +421,16 @@ export const BehaviorBindingPicker = ({
   useEffect(() => {
     setEditor(null);
     setActiveTab(currentTab);
-  }, [binding.behaviorId, binding.param1, binding.param2, currentTab]);
+    if (currentBehavior && currentTab === "actions") {
+      setActiveActionGroup(actionPresentation(currentBehavior).group);
+    }
+  }, [
+    binding.behaviorId,
+    binding.param1,
+    binding.param2,
+    currentBehavior,
+    currentTab,
+  ]);
 
   const keyUsageDescription = useMemo(
     () =>
@@ -462,13 +485,6 @@ export const BehaviorBindingPicker = ({
       ),
   );
 
-  const currentLabel = useMemo(() => {
-    if (currentBehavior && isCanonicalKeyPress(currentBehavior)) {
-      return describeHidUsage(binding.param1, keyCatalog);
-    }
-    return currentBehavior?.displayName || "Unavailable action";
-  }, [binding.param1, currentBehavior, keyCatalog]);
-
   const chooseTab = (tab: BrowserTab) => {
     if (tab === "keys" && !keyPressBehavior) return;
     setActiveTab(tab);
@@ -486,7 +502,7 @@ export const BehaviorBindingPicker = ({
   };
 
   const chooseBehavior = (behavior: GetBehaviorDetailsResponse) => {
-    if (isDisabled) return;
+    if (isDisabled || behavior.metadata.length === 0) return;
 
     const presentation = actionPresentation(behavior);
     if (!hasConfigurableParameters(behavior) && !presentation.warning) {
@@ -539,54 +555,21 @@ export const BehaviorBindingPicker = ({
   const param2Label = editorIsMulti ? "Tap action" : undefined;
 
   return (
-    <section aria-label="Assign key action" className="grid gap-4">
-      <div className="flex items-center gap-3 rounded-xl border border-line bg-base-100 px-3 py-2.5">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-base-300 text-base-content/60">
-          {currentTab === "keys" ? (
-            <KeyboardIcon aria-hidden="true" className="size-4" />
-          ) : currentTab === "multi" ? (
-            <Sparkles aria-hidden="true" className="size-4" />
-          ) : (
-            <ToggleLeft aria-hidden="true" className="size-4" />
-          )}
-        </span>
-        <span className="min-w-0">
-          <span className="block text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-base-content/45">
-            Current
-          </span>
-          <span className="block truncate text-sm font-semibold">
-            {currentLabel}
-          </span>
-        </span>
-      </div>
-
-      <div
-        role="group"
-        aria-label="Assignment type"
-        className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-base-100 p-1"
-      >
-        {(
-          [
-            ["keys", "Keys"],
-            ["actions", "Actions"],
-            ["multi", "Multi"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={activeTab === id}
-            disabled={(id === "keys" && !keyPressBehavior) || isDisabled}
-            onClick={() => chooseTab(id)}
-            className="min-h-10 rounded-lg px-2 text-xs font-semibold text-base-content/55 outline-none transition hover:text-base-content focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-35 aria-pressed:bg-primary aria-pressed:text-primary-content aria-pressed:shadow-sm"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+    <section aria-label="Assign key action" className="grid gap-3">
+      <SegmentedControl
+        ariaLabel="Assignment type"
+        value={activeTab}
+        disabled={isDisabled}
+        options={[
+          { id: "keys", label: "Keys", disabled: !keyPressBehavior },
+          { id: "actions", label: "Actions" },
+          { id: "multi", label: "Multi" },
+        ]}
+        onChange={chooseTab}
+      />
 
       {editor && editorBehavior ? (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           <button
             type="button"
             onClick={() => setEditor(null)}
@@ -596,7 +579,7 @@ export const BehaviorBindingPicker = ({
             Back to {activeTab === "multi" ? "multi" : "actions"}
           </button>
 
-          <div className="rounded-2xl border border-line bg-base-100 p-4">
+          <div>
             <p className="text-lg font-semibold">
               {editorBehavior.displayName}
             </p>
@@ -617,7 +600,7 @@ export const BehaviorBindingPicker = ({
             )}
 
             {hasConfigurableParameters(editorBehavior) && (
-              <div className="mt-5 grid gap-4 border-t border-line pt-4">
+              <div className="mt-4 grid gap-3 border-t border-line-subtle pt-4">
                 <BehaviorParametersPicker
                   metadata={editorBehavior.metadata}
                   param1={editor.param1}
@@ -688,33 +671,46 @@ export const BehaviorBindingPicker = ({
           </p>
         )
       ) : (
-        <div className="grid gap-5">
-          <label className="grid gap-1.5">
-            <span className="sr-only">
-              Search {activeTab === "multi" ? "multi actions" : "actions"}
-            </span>
-            <span className="flex min-h-11 items-center rounded-xl border border-line bg-raised focus-within:ring-2 focus-within:ring-focus">
-              <Search
-                aria-hidden="true"
-                className="ml-3 size-4 text-base-content/45"
-              />
-              <input
-                type="search"
-                value={search}
-                disabled={isDisabled}
-                onChange={(event) => setSearch(event.currentTarget.value)}
-                placeholder={
-                  activeTab === "multi"
-                    ? "Search tap and hold…"
-                    : "Search actions…"
-                }
-                className="min-h-10 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-base-content/40"
-              />
-            </span>
-          </label>
+        <div className="grid gap-3">
+          <SearchField
+            ariaLabel={`Search ${activeTab === "multi" ? "multi actions" : "actions"}`}
+            value={search}
+            disabled={isDisabled}
+            onChange={setSearch}
+            placeholder={
+              activeTab === "multi" ? "Search tap and hold…" : "Search actions…"
+            }
+          />
+
+          {activeTab === "actions" && !search && (
+            <div
+              role="group"
+              aria-label="Action category"
+              className="wafer-category-strip"
+            >
+              {ACTION_GROUPS.filter(({ id }) =>
+                actionBehaviors.some(
+                  (behavior) => actionPresentation(behavior).group === id,
+                ),
+              ).map(({ id, shortLabel }) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={activeActionGroup === id}
+                  disabled={isDisabled}
+                  onClick={() => setActiveActionGroup(id)}
+                  className="wafer-category-chip"
+                >
+                  {shortLabel}
+                </button>
+              ))}
+            </div>
+          )}
 
           {activeTab === "actions" ? (
             ACTION_GROUPS.map(({ id, label }) => {
+              if (!search && id !== activeActionGroup) return null;
+
               const groupBehaviors = filteredActions.filter(
                 (behavior) => actionPresentation(behavior).group === id,
               );
@@ -724,11 +720,11 @@ export const BehaviorBindingPicker = ({
                 <section key={id} aria-labelledby={`action-group-${id}`}>
                   <h3
                     id={`action-group-${id}`}
-                    className="mb-2 text-sm font-semibold"
+                    className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted"
                   >
                     {label}
                   </h3>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-1">
                     {groupBehaviors.map((behavior) => (
                       <BehaviorCard
                         key={behavior.id}
@@ -743,7 +739,7 @@ export const BehaviorBindingPicker = ({
               );
             })
           ) : filteredMulti.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1">
               {filteredMulti.map((behavior) => (
                 <BehaviorCard
                   key={behavior.id}

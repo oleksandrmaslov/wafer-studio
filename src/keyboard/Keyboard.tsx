@@ -655,6 +655,11 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     return keymap.layers[selectedLayerIndex].bindings[selectedKeyPosition];
   }, [keymap, selectedLayerIndex, selectedKeyPosition]);
 
+  const selectedBindingDescription = useMemo(() => {
+    if (!keymap || !selectedBinding) return undefined;
+    return describeBinding(selectedBinding, behaviors, keymap.layers);
+  }, [behaviors, keymap, selectedBinding]);
+
   const moveLayer = useCallback(
     (start: number, end: number) => {
       const doMove = async (startIndex: number, destIndex: number) => {
@@ -871,9 +876,9 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
   }, [keymap, selectedLayerIndex]);
 
   return (
-    <div className="grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(32rem,1fr)_auto] overflow-auto bg-base-300 xl:grid-cols-[minmax(0,1fr)_26rem] xl:grid-rows-1 xl:overflow-hidden">
+    <div className="grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(32rem,1fr)_auto] overflow-auto bg-base-300 xl:grid-cols-[minmax(0,1fr)_24rem] xl:grid-rows-1 xl:overflow-hidden">
       <main className="grid min-h-[32rem] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-base-300 xl:min-h-0">
-        <div className="grid gap-4 border-b border-line bg-base-200 px-4 py-3 lg:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)_auto] lg:items-end">
+        <div className="wafer-finish-panel grid gap-3 border-b border-line-subtle px-4 py-2.5 lg:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)_auto] lg:items-end">
           {layouts && (
             <PhysicalLayoutPicker
               layouts={layouts}
@@ -905,7 +910,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               aria-label="Fit keyboard to viewport"
               title="Fit keyboard to viewport"
               onClick={() => setKeymapScale("auto")}
-              className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-line bg-raised text-base-content transition hover:border-base-content/30 hover:bg-base-100"
+              className="grid min-h-10 min-w-10 place-items-center rounded-control border border-line-subtle bg-transparent text-muted transition hover:border-line hover:bg-hover hover:text-base-content"
             >
               <Maximize2 aria-hidden="true" className="size-4" />
             </button>
@@ -914,7 +919,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
             </label>
             <select
               id="keymap-zoom"
-              className="min-h-11 rounded-lg border border-line bg-raised px-3 text-sm text-base-content"
+              className="min-h-10 rounded-control border border-line-subtle bg-transparent px-3 text-sm text-base-content"
               value={keymapScale}
               onChange={(e) => {
                 const value = deserializeLayoutZoom(e.target.value);
@@ -968,42 +973,51 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           )}
         </section>
 
-        <div className="flex min-h-11 items-center gap-2 border-t border-line bg-base-200 px-4 text-xs text-base-content/60">
+        <div className="wafer-finish-panel flex min-h-10 items-center gap-2 border-t border-line-subtle px-4 text-xs text-muted">
           <MousePointer2 aria-hidden="true" className="size-3.5" />
           Select a key, then choose what it should do. Nothing is sent until you
           review the draft.
         </div>
       </main>
 
-      <aside className="border-t border-line bg-base-200 xl:col-start-2 xl:row-start-1 xl:flex xl:min-h-0 xl:flex-col xl:border-l xl:border-t-0">
-        <div className="flex min-h-14 items-center justify-between border-b border-line px-4">
-          <div>
+      <aside className="wafer-finish-panel border-t border-line-subtle xl:col-start-2 xl:row-start-1 xl:flex xl:min-h-0 xl:flex-col xl:border-l xl:border-t-0">
+        <div className="flex min-h-14 items-center justify-between gap-3 border-b border-line-subtle px-3">
+          <div className="min-w-0">
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-base-content/50">
               {selectedKeyPosition === undefined
                 ? "Assignment library"
                 : keymap?.layers[selectedLayerIndex]?.name ||
                   `Layer ${selectedLayerIndex}`}
             </p>
-            <h2 className="font-semibold">
+            <h2 className="truncate font-semibold">
               {selectedKeyPosition === undefined
                 ? "Choose a key"
                 : `Assign key ${selectedKeyPosition + 1}`}
             </h2>
+            {selectedBindingDescription && (
+              <p className="truncate text-xs text-muted">
+                {selectedBindingDescription}
+              </p>
+            )}
           </div>
           {selectedKeyPosition !== undefined && (
-            <span className="rounded-full border border-line bg-base-100 px-2 py-1 font-mono text-[0.6875rem] text-base-content/60">
-              K{String(selectedKeyPosition).padStart(2, "0")}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                title="Changes stay local until Review"
+                aria-label="Changes stay local until Review"
+                className="grid size-8 place-items-center rounded-full text-muted"
+              >
+                <ShieldCheck aria-hidden="true" className="size-4" />
+              </span>
+              <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
+                K{String(selectedKeyPosition).padStart(2, "0")}
+              </span>
+            </div>
           )}
         </div>
 
         {keymap && selectedBinding ? (
-          <div className="grid gap-4 overflow-y-auto p-4">
-            <div className="flex items-center gap-2 text-xs text-base-content/60">
-              <ShieldCheck aria-hidden="true" className="size-4 text-primary" />
-              Changes stay local until Review.
-            </div>
-
+          <div className="grid gap-3 overflow-y-auto p-3">
             <BehaviorBindingPicker
               key={`${selectedLayerIndex}:${selectedKeyPosition}`}
               binding={selectedBinding}

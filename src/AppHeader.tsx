@@ -27,6 +27,7 @@ import type {
   DraftChangeSummary,
 } from "./keyboard/keymapDraft";
 import { WaferMark } from "./WaferMark";
+import { WAFER_FINISHES, type WaferFinish } from "./appearance";
 
 export interface AppHeaderProps {
   connectedDeviceLabel?: string;
@@ -38,6 +39,8 @@ export interface AppHeaderProps {
   onDisconnect?: () => void | Promise<void>;
   onShowAbout?: () => void;
   onShowLicenseNotice?: () => void;
+  waferFinish?: WaferFinish;
+  onWaferFinishChange?: (finish: WaferFinish) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   draftCount?: number;
@@ -60,6 +63,8 @@ export const AppHeader = ({
   onResetSettings,
   onShowAbout,
   onShowLicenseNotice,
+  waferFinish = "precision",
+  onWaferFinishChange,
   draftCount = 0,
   draftChanges = [],
   draftErrors = [],
@@ -317,8 +322,30 @@ export const AppHeader = ({
             >
               Restore Stock Settings
             </MenuItem>
+            {WAFER_FINISHES.map((finish, index) => (
+              <MenuItem
+                key={finish.id}
+                className={`flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300 ${
+                  index === 0 ? "mt-1 border-t border-line-subtle pt-2" : ""
+                }`}
+                onAction={() => onWaferFinishChange?.(finish.id)}
+              >
+                <span className="min-w-0">
+                  <span className="block font-medium">{finish.label}</span>
+                  <span className="block truncate text-[0.625rem] text-muted">
+                    {finish.description}
+                  </span>
+                </span>
+                {waferFinish === finish.id && (
+                  <Check
+                    aria-label="Selected visual finish"
+                    className="size-4 shrink-0 text-accent-foreground"
+                  />
+                )}
+              </MenuItem>
+            ))}
             <MenuItem
-              className="mt-1 flex min-h-10 items-center rounded-lg border-t border-line px-3 pt-1 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300"
+              className="mt-1 flex min-h-10 items-center rounded-lg border-t border-line-subtle px-3 pt-1 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300"
               onAction={onShowAbout}
             >
               About Wafer Studio
