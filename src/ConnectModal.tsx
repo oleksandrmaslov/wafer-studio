@@ -354,7 +354,10 @@ function NoTransportsOptionsPrompt() {
         <li>Open this page in a current Chrome or Edge browser, or</li>
         <li>
           download the{" "}
-          <ExternalLink href="/download">desktop application</ExternalLink>.
+          <ExternalLink href={`${import.meta.env.BASE_URL}download.html`}>
+            desktop application
+          </ExternalLink>
+          .
         </li>
       </ul>
     </section>

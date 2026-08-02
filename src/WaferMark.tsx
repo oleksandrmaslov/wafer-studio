@@ -3,6 +3,8 @@ export interface WaferMarkProps {
   compact?: boolean;
 }
 
+const waferMarkUrl = `${import.meta.env.BASE_URL}wafer-mark.svg`;
+
 /**
  * The supplied Wafer icon paired with a restrained product label. The image is
  * decorative here because the combined mark already has an accessible name.
@@ -22,7 +24,7 @@ export const WaferMark = ({ className, compact = false }: WaferMarkProps) => (
         "shrink-0 rounded-[20%]",
         compact ? "size-9" : "size-11",
       ].join(" ")}
-      src="/wafer-mark.svg"
+      src={waferMarkUrl}
     />
     <span aria-hidden="true" className="leading-none">
       <span className="block text-sm font-extrabold tracking-[0.14em] text-base-content">
