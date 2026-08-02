@@ -30,6 +30,10 @@ import { AppFooter } from "./AppFooter";
 import { AboutModal } from "./AboutModal";
 import { LicenseNoticeModal } from "./misc/LicenseNoticeModal";
 import { createMockRpcTransport } from "./rpc/mockTransport";
+import type {
+  DraftApplyResult,
+  KeymapDraftController,
+} from "./keyboard/keymapDraft";
 
 declare global {
   interface Window {
@@ -181,6 +185,8 @@ function App() {
   const [showLicenseNotice, setShowLicenseNotice] = useState(false);
   const [connectionError, setConnectionError] = useState<string>();
   const [connectionAbort, setConnectionAbort] = useState(new AbortController());
+  const [draftController, setDraftController] =
+    useState<KeymapDraftController>();
   const autoDemoStarted = useRef(false);
 
   const [lockState, setLockState] = useState<LockState>(
@@ -215,19 +221,18 @@ function App() {
     updateLockState();
   }, [conn, reset, setLockState]);
 
-  const save = useCallback(() => {
-    async function doSave() {
-      if (!conn.conn) {
-        return;
-      }
-
-      const resp = await call_rpc(conn.conn, { keymap: { saveChanges: true } });
-      if (!resp.keymap?.saveChanges || resp.keymap?.saveChanges.err) {
-        console.error("Failed to save changes", resp.keymap?.saveChanges);
-      }
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!conn.conn) {
+      return false;
     }
 
-    doSave();
+    const resp = await call_rpc(conn.conn, { keymap: { saveChanges: true } });
+    if (!resp.keymap?.saveChanges || resp.keymap?.saveChanges.err) {
+      console.error("Failed to save changes", resp.keymap?.saveChanges);
+      return false;
+    }
+
+    return true;
   }, [conn]);
 
   const discard = useCallback(() => {
@@ -304,6 +309,26 @@ function App() {
     [onConnect],
   );
 
+  const applyDraft = useCallback(async (): Promise<DraftApplyResult> => {
+    if (!draftController) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        remainingCount: 0,
+        message: "No key draft is available.",
+      };
+    }
+
+    const result = await draftController.apply();
+    if (result.ok || result.appliedCount > 0) reset();
+    return result;
+  }, [draftController, reset]);
+
+  const discardDraft = useCallback(() => {
+    draftController?.discard();
+    reset();
+  }, [draftController, reset]);
+
   useEffect(() => {
     if (
       !autoDemoStarted.current &&
@@ -342,8 +367,14 @@ function App() {
               onDiscard={discard}
               onDisconnect={disconnect}
               onResetSettings={resetSettings}
+              draftCount={draftController?.draftCount || 0}
+              draftChanges={draftController?.changes || []}
+              draftErrors={draftController?.errors || []}
+              draftIsApplying={draftController?.isApplying || false}
+              onApplyDraft={applyDraft}
+              onDiscardDraft={discardDraft}
             />
-            <Keyboard />
+            <Keyboard onDraftStateChange={setDraftController} />
             <AppFooter
               onShowAbout={() => setShowAbout(true)}
               onShowLicenseNotice={() => setShowLicenseNotice(true)}

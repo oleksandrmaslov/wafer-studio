@@ -24,6 +24,7 @@ interface LayerPickerProps {
   selectedLayerIndex: number;
   canAdd?: boolean;
   canRemove?: boolean;
+  isStructureDisabled?: boolean;
 
   onLayerClicked?: LayerClickCallback;
   onLayerMoved?: LayerMovedCallback;
@@ -118,6 +119,7 @@ export const LayerPicker = ({
   selectedLayerIndex,
   canAdd,
   canRemove,
+  isStructureDisabled,
   onLayerClicked,
   onLayerMoved,
   onAddClicked,
@@ -161,6 +163,7 @@ export const LayerPicker = ({
     getItems: (keys) =>
       [...keys].map((key) => ({ "text/plain": key.toLocaleString() })),
     onReorder(e) {
+      if (isStructureDisabled) return;
       const startIndex = layer_items.findIndex((l) => e.keys.has(l.id));
       const endIndex = layer_items.findIndex((l) => l.id === e.target.key);
       onLayerMoved?.(startIndex, endIndex);
@@ -188,7 +191,7 @@ export const LayerPicker = ({
             aria-label="Remove selected layer"
             title="Remove selected layer"
             className="grid size-9 place-items-center rounded-lg border border-transparent text-base-content/60 transition enabled:hover:border-line enabled:hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-35"
-            disabled={!canRemove}
+            disabled={!canRemove || isStructureDisabled}
             onClick={onRemoveClicked}
           >
             <Minus className="size-4" />
@@ -198,8 +201,14 @@ export const LayerPicker = ({
           <button
             type="button"
             aria-label="Add layer"
-            title={canAdd ? "Add layer" : "No reserved layers available"}
-            disabled={!canAdd}
+            title={
+              isStructureDisabled
+                ? "Apply or discard the key draft first"
+                : canAdd
+                  ? "Add layer"
+                  : "No reserved layers available"
+            }
+            disabled={!canAdd || isStructureDisabled}
             className="grid size-9 place-items-center rounded-lg border border-transparent text-base-content/60 transition enabled:hover:border-line enabled:hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-35"
             onClick={onAddClicked}
           >
@@ -246,6 +255,7 @@ export const LayerPicker = ({
             <button
               type="button"
               aria-label={`Rename ${layer_item.name}`}
+              disabled={isStructureDisabled}
               className="grid size-8 place-items-center rounded-md text-base-content/45 opacity-0 transition hover:bg-base-300 hover:text-base-content focus:opacity-100 group-hover:opacity-100"
               onClick={(event) => {
                 event.stopPropagation();

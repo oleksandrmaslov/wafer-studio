@@ -26,6 +26,7 @@ import { useConnectedDeviceData } from "../rpc/useConnectedDeviceData";
 import { ConnectionContext } from "../rpc/ConnectionContext";
 import { UndoRedoContext } from "../undoRedo";
 import { BehaviorBindingPicker } from "../behaviors/BehaviorBindingPicker";
+import { validateBindingParameters } from "../behaviors/parameters";
 import { produce } from "immer";
 import { LockStateContext } from "../rpc/LockStateContext";
 import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
@@ -43,8 +44,38 @@ import {
   Settings2,
   Sparkles,
 } from "lucide-react";
+import {
+  bindingEquals,
+  countDraftBindings,
+  DraftApplyResult,
+  DraftBindingOverrides,
+  DraftValidationResult,
+  KeymapDraftController,
+  materializeDraftKeymap,
+  planDraftBindings,
+  rebaseDraftBindings,
+  updateDraftBinding,
+} from "./keymapDraft";
 
 type BehaviorMap = Record<number, GetBehaviorDetailsResponse>;
+
+export interface KeyboardProps {
+  onDraftStateChange?: (controller: KeymapDraftController) => void;
+}
+
+function describeBinding(
+  binding: BehaviorBinding,
+  behaviors: BehaviorMap,
+): string {
+  const name =
+    behaviors[binding.behaviorId]?.displayName ||
+    `Behavior ${binding.behaviorId}`;
+  const parameters = [binding.param1, binding.param2].filter(
+    (parameter) => parameter !== 0,
+  );
+
+  return parameters.length > 0 ? `${name} (${parameters.join(", ")})` : name;
+}
 
 function useBehaviors(): BehaviorMap {
   const connection = useContext(ConnectionContext);
@@ -170,14 +201,14 @@ function useLayouts(): [
   ];
 }
 
-export default function Keyboard() {
+export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
   const [
     layouts,
     ,
     selectedPhysicalLayoutIndex,
     setSelectedPhysicalLayoutIndex,
   ] = useLayouts();
-  const [keymap, setKeymap] = useConnectedDeviceData<Keymap>(
+  const [fetchedKeymap] = useConnectedDeviceData<Keymap>(
     { keymap: { getKeymap: true } },
     (keymap) => {
       console.log("Got the keymap!");
@@ -185,6 +216,9 @@ export default function Keyboard() {
     },
     true,
   );
+  const [deviceKeymap, setDeviceKeymap] = useState<Keymap>();
+  const [draftBindings, setDraftBindings] = useState<DraftBindingOverrides>({});
+  const [isApplyingDraft, setIsApplyingDraft] = useState(false);
 
   const [keymapScale, setKeymapScale] = useLocalStorageState<LayoutZoom>(
     "keymapScale",
@@ -204,6 +238,270 @@ export default function Keyboard() {
   const undoRedo = useContext(UndoRedoContext);
 
   useEffect(() => {
+    if (!fetchedKeymap) return;
+
+    setDeviceKeymap(fetchedKeymap);
+    setDraftBindings((current) => rebaseDraftBindings(fetchedKeymap, current));
+  }, [fetchedKeymap]);
+
+  const keymap = useMemo(
+    () =>
+      deviceKeymap
+        ? materializeDraftKeymap(deviceKeymap, draftBindings)
+        : undefined,
+    [deviceKeymap, draftBindings],
+  );
+
+  const buildDraftPlan = useCallback(
+    (base: Keymap, draft: DraftBindingOverrides): DraftValidationResult => {
+      const plan = planDraftBindings(
+        base,
+        draft,
+        new Set(Object.keys(behaviors).map(Number)),
+      );
+      const layerIds = base.layers.map(({ id }) => id);
+
+      for (const change of plan.changes) {
+        const behavior = behaviors[change.after.behaviorId];
+        if (
+          behavior &&
+          !validateBindingParameters(
+            behavior.metadata,
+            layerIds,
+            change.after.param1,
+            change.after.param2,
+          )
+        ) {
+          plan.errors.push(
+            `${change.layerName}, key ${change.keyPosition + 1}: ${behavior.displayName} has invalid parameters.`,
+          );
+        }
+      }
+
+      return plan;
+    },
+    [behaviors],
+  );
+
+  const draftPlan = useMemo(
+    () =>
+      deviceKeymap
+        ? buildDraftPlan(deviceKeymap, draftBindings)
+        : { changes: [], errors: [] },
+    [buildDraftPlan, deviceKeymap, draftBindings],
+  );
+
+  const draftSummaries = useMemo(
+    () =>
+      draftPlan.changes.map((change) => ({
+        ...change,
+        beforeLabel: describeBinding(change.before, behaviors),
+        afterLabel: describeBinding(change.after, behaviors),
+      })),
+    [behaviors, draftPlan.changes],
+  );
+
+  const discardDraft = useCallback(() => {
+    if (isApplyingDraft) return;
+    setDraftBindings({});
+  }, [isApplyingDraft]);
+
+  const applyDraft = useCallback(async (): Promise<DraftApplyResult> => {
+    const capturedDeviceKeymap = deviceKeymap;
+    const capturedDraft = draftBindings;
+    const capturedPlan = capturedDeviceKeymap
+      ? buildDraftPlan(capturedDeviceKeymap, capturedDraft)
+      : { changes: [], errors: ["No keyboard snapshot is available."] };
+
+    if (!conn.conn) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        remainingCount: countDraftBindings(capturedDraft),
+        message: "Reconnect the keyboard to apply this draft.",
+      };
+    }
+
+    if (capturedPlan.errors.length > 0) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        remainingCount: countDraftBindings(capturedDraft),
+        message: capturedPlan.errors[0],
+      };
+    }
+
+    setIsApplyingDraft(true);
+    let appliedCount = 0;
+    let plannedCount = capturedPlan.changes.length;
+
+    const readDeviceKeymap = async (): Promise<Keymap> => {
+      if (!conn.conn) throw new Error("Keyboard disconnected.");
+      const response = await call_rpc(conn.conn, {
+        keymap: { getKeymap: true },
+      });
+      const refreshed = response.keymap?.getKeymap;
+      if (!refreshed)
+        throw new Error("The keyboard did not return its keymap.");
+      return refreshed;
+    };
+
+    try {
+      // Re-read immediately before writing so an external change cannot be
+      // overwritten using an old review snapshot.
+      const latest = await readDeviceKeymap();
+      setDeviceKeymap(latest);
+      setDraftBindings((current) => rebaseDraftBindings(latest, current));
+
+      const conflicts = capturedPlan.changes.filter((change) => {
+        const layer = latest.layers.find(({ id }) => id === change.layerId);
+        const current = layer?.bindings[change.keyPosition];
+        return (
+          !bindingEquals(current, change.before) &&
+          !bindingEquals(current, change.after)
+        );
+      });
+
+      if (conflicts.length > 0) {
+        return {
+          ok: false,
+          appliedCount: 0,
+          remainingCount: countDraftBindings(
+            rebaseDraftBindings(latest, capturedDraft),
+          ),
+          message:
+            "The keyboard changed since this draft was created. Review the refreshed diff before applying.",
+          conflict: true,
+        };
+      }
+
+      const rebasedCapturedDraft = rebaseDraftBindings(latest, capturedDraft);
+      const readyPlan = buildDraftPlan(latest, rebasedCapturedDraft);
+      if (readyPlan.errors.length > 0) {
+        return {
+          ok: false,
+          appliedCount: 0,
+          remainingCount: countDraftBindings(rebasedCapturedDraft),
+          message: readyPlan.errors[0],
+        };
+      }
+
+      plannedCount = readyPlan.changes.length;
+      for (const change of readyPlan.changes) {
+        if (!conn.conn) throw new Error("Keyboard disconnected during Apply.");
+
+        const response = await call_rpc(conn.conn, {
+          keymap: {
+            setLayerBinding: {
+              layerId: change.layerId,
+              keyPosition: change.keyPosition,
+              binding: change.after,
+            },
+          },
+        });
+
+        if (
+          response.keymap?.setLayerBinding !==
+          SetLayerBindingResponse.SET_LAYER_BINDING_RESP_OK
+        ) {
+          throw new Error(
+            `Keyboard rejected ${change.layerName}, key ${change.keyPosition + 1} (response ${response.keymap?.setLayerBinding ?? "missing"}).`,
+          );
+        }
+        appliedCount += 1;
+      }
+
+      // Never clear captured intent until a fresh device snapshot proves that
+      // every accepted operation is present.
+      const refreshed = await readDeviceKeymap();
+      const remainingCapturedDraft = rebaseDraftBindings(
+        refreshed,
+        capturedDraft,
+      );
+      const remainingPlan = buildDraftPlan(refreshed, remainingCapturedDraft);
+      setDeviceKeymap(refreshed);
+      setDraftBindings((current) => rebaseDraftBindings(refreshed, current));
+
+      if (
+        remainingPlan.errors.length > 0 ||
+        countDraftBindings(remainingCapturedDraft) > 0
+      ) {
+        return {
+          ok: false,
+          appliedCount,
+          remainingCount: countDraftBindings(remainingCapturedDraft),
+          message:
+            remainingPlan.errors[0] ||
+            "The keyboard did not confirm every change. Remaining draft intent was preserved.",
+        };
+      }
+
+      const unsavedResponse = await call_rpc(conn.conn, {
+        keymap: { checkUnsavedChanges: true },
+      });
+      return {
+        ok: true,
+        appliedCount,
+        deviceUnsaved: unsavedResponse.keymap?.checkUnsavedChanges === true,
+      };
+    } catch (error) {
+      let remainingCount = Math.max(plannedCount - appliedCount, 0);
+      let reconciled = false;
+
+      try {
+        const refreshed = await readDeviceKeymap();
+        const remainingCapturedDraft = rebaseDraftBindings(
+          refreshed,
+          capturedDraft,
+        );
+        remainingCount = countDraftBindings(remainingCapturedDraft);
+        setDeviceKeymap(refreshed);
+        setDraftBindings((current) => rebaseDraftBindings(refreshed, current));
+        reconciled = true;
+      } catch {
+        // The exact device state is unknown, so retain all local intent until a
+        // later reconnect/reread can reconcile it.
+        remainingCount = countDraftBindings(capturedDraft);
+      }
+
+      const cause =
+        error instanceof Error
+          ? error.message
+          : "Apply stopped because the keyboard returned an unknown error.";
+
+      return {
+        ok: false,
+        appliedCount,
+        remainingCount,
+        message: reconciled
+          ? cause
+          : `${cause} The keyboard state could not be verified; all local intent was preserved for reconciliation after reconnect.`,
+      };
+    } finally {
+      setIsApplyingDraft(false);
+    }
+  }, [buildDraftPlan, conn.conn, deviceKeymap, draftBindings]);
+
+  useEffect(() => {
+    onDraftStateChange?.({
+      draftCount: countDraftBindings(draftBindings),
+      changes: draftSummaries,
+      errors: draftPlan.errors,
+      isApplying: isApplyingDraft,
+      apply: applyDraft,
+      discard: discardDraft,
+    });
+  }, [
+    applyDraft,
+    discardDraft,
+    draftBindings,
+    draftPlan.errors,
+    draftSummaries,
+    isApplyingDraft,
+    onDraftStateChange,
+  ]);
+
+  useEffect(() => {
     setSelectedLayerIndex(0);
     setSelectedKeyPosition(undefined);
   }, [conn]);
@@ -220,7 +518,7 @@ export default function Keyboard() {
 
       const new_keymap = resp?.keymap?.setActivePhysicalLayout?.ok;
       if (new_keymap) {
-        setKeymap(new_keymap);
+        setDeviceKeymap(new_keymap);
       } else {
         console.error(
           "Failed to set the active physical layout err:",
@@ -230,7 +528,7 @@ export default function Keyboard() {
     }
 
     performSetRequest();
-  }, [conn.conn, layouts, selectedPhysicalLayoutIndex, setKeymap]);
+  }, [conn.conn, layouts, selectedPhysicalLayoutIndex]);
 
   const doSelectPhysicalLayout = useCallback(
     (i: number) => {
@@ -248,7 +546,12 @@ export default function Keyboard() {
 
   const doUpdateBinding = useCallback(
     (binding: BehaviorBinding) => {
-      if (!keymap || selectedKeyPosition === undefined) {
+      if (
+        !deviceKeymap ||
+        !keymap ||
+        selectedKeyPosition === undefined ||
+        isApplyingDraft
+      ) {
         console.error(
           "Can't update binding without a selected key position and loaded keymap",
         );
@@ -259,61 +562,34 @@ export default function Keyboard() {
       const layerId = keymap.layers[layer].id;
       const keyPosition = selectedKeyPosition;
       const oldBinding = keymap.layers[layer].bindings[keyPosition];
-      undoRedo?.(async () => {
-        if (!conn.conn) {
-          throw new Error("Not connected");
-        }
-
-        const resp = await call_rpc(conn.conn, {
-          keymap: { setLayerBinding: { layerId, keyPosition, binding } },
-        });
-
-        if (
-          resp.keymap?.setLayerBinding ===
-          SetLayerBindingResponse.SET_LAYER_BINDING_RESP_OK
-        ) {
-          setKeymap((current) =>
-            current == null
-              ? current
-              : produce(current, (draft) => {
-                  draft.layers[layer].bindings[keyPosition] = binding;
-                }),
-          );
-        } else {
-          console.error("Failed to set binding", resp.keymap?.setLayerBinding);
-        }
+      void undoRedo?.(async () => {
+        setDraftBindings((current) =>
+          updateDraftBinding(
+            deviceKeymap,
+            current,
+            { layerId, keyPosition },
+            binding,
+          ),
+        );
 
         return async () => {
-          if (!conn.conn) {
-            return;
-          }
-
-          const resp = await call_rpc(conn.conn, {
-            keymap: {
-              setLayerBinding: { layerId, keyPosition, binding: oldBinding },
-            },
-          });
-          if (
-            resp.keymap?.setLayerBinding ===
-            SetLayerBindingResponse.SET_LAYER_BINDING_RESP_OK
-          ) {
-            setKeymap((current) =>
-              current == null
-                ? current
-                : produce(current, (draft) => {
-                    draft.layers[layer].bindings[keyPosition] = oldBinding;
-                  }),
-            );
-          }
+          setDraftBindings((current) =>
+            updateDraftBinding(
+              deviceKeymap,
+              current,
+              { layerId, keyPosition },
+              oldBinding,
+            ),
+          );
         };
       });
     },
     [
-      conn,
+      deviceKeymap,
+      isApplyingDraft,
       keymap,
       selectedKeyPosition,
       selectedLayerIndex,
-      setKeymap,
       undoRedo,
     ],
   );
@@ -349,7 +625,7 @@ export default function Keyboard() {
         });
 
         if (resp.keymap?.moveLayer?.ok) {
-          setKeymap(resp.keymap?.moveLayer?.ok);
+          setDeviceKeymap(resp.keymap?.moveLayer?.ok);
           setSelectedLayerIndex(destIndex);
         } else {
           console.error("Error moving", resp);
@@ -361,7 +637,7 @@ export default function Keyboard() {
         return () => doMove(end, start);
       });
     },
-    [conn.conn, setKeymap, undoRedo],
+    [conn.conn, undoRedo],
   );
 
   const addLayer = useCallback(() => {
@@ -378,7 +654,7 @@ export default function Keyboard() {
         if (!addedLayer) {
           throw new Error("Keyboard returned an empty layer response");
         }
-        setKeymap((current) =>
+        setDeviceKeymap((current) =>
           current == null
             ? current
             : produce(current, (draft) => {
@@ -407,7 +683,7 @@ export default function Keyboard() {
 
       console.log(resp);
       if (resp.keymap?.removeLayer?.ok) {
-        setKeymap((current) =>
+        setDeviceKeymap((current) =>
           current == null
             ? current
             : produce(current, (draft) => {
@@ -427,7 +703,7 @@ export default function Keyboard() {
       const index = await doAdd();
       return () => doRemove(index);
     });
-  }, [conn, keymap, setKeymap, undoRedo]);
+  }, [conn, keymap, undoRedo]);
 
   const removeLayer = useCallback(() => {
     async function doRemove(layerIndex: number): Promise<void> {
@@ -443,7 +719,7 @@ export default function Keyboard() {
         if (layerIndex == keymap.layers.length - 1) {
           setSelectedLayerIndex(layerIndex - 1);
         }
-        setKeymap((current) =>
+        setDeviceKeymap((current) =>
           current == null
             ? current
             : produce(current, (draft) => {
@@ -471,7 +747,7 @@ export default function Keyboard() {
       console.log(resp);
       if (resp.keymap?.restoreLayer?.ok) {
         const restoredLayer = resp.keymap.restoreLayer.ok;
-        setKeymap((current) =>
+        setDeviceKeymap((current) =>
           current == null
             ? current
             : produce(current, (draft) => {
@@ -498,7 +774,7 @@ export default function Keyboard() {
       await doRemove(index);
       return () => doRestore(layerId, index);
     });
-  }, [conn, keymap, selectedLayerIndex, setKeymap, undoRedo]);
+  }, [conn, keymap, selectedLayerIndex, undoRedo]);
 
   const changeLayerName = useCallback(
     (id: number, oldName: string, newName: string) => {
@@ -515,7 +791,7 @@ export default function Keyboard() {
           resp.keymap?.setLayerProps ==
           SetLayerPropsResponse.SET_LAYER_PROPS_RESP_OK
         ) {
-          setKeymap((current) =>
+          setDeviceKeymap((current) =>
             current == null
               ? current
               : produce(current, (draft) => {
@@ -539,7 +815,7 @@ export default function Keyboard() {
         };
       });
     },
-    [conn, setKeymap, undoRedo],
+    [conn, undoRedo],
   );
 
   useEffect(() => {
@@ -599,6 +875,7 @@ export default function Keyboard() {
             <PhysicalLayoutPicker
               layouts={layouts}
               selectedPhysicalLayoutIndex={selectedPhysicalLayoutIndex}
+              isDisabled={countDraftBindings(draftBindings) > 0}
               onPhysicalLayoutClicked={doSelectPhysicalLayout}
             />
           )}
@@ -611,10 +888,17 @@ export default function Keyboard() {
               onLayerMoved={moveLayer}
               canAdd={(keymap.availableLayers || 0) > 0}
               canRemove={(keymap.layers?.length || 0) > 1}
+              isStructureDisabled={countDraftBindings(draftBindings) > 0}
               onAddClicked={addLayer}
               onRemoveClicked={removeLayer}
               onLayerNameChanged={changeLayerName}
             />
+          )}
+          {countDraftBindings(draftBindings) > 0 && (
+            <p className="rounded-lg border border-line bg-base-100 px-3 py-2 text-xs leading-relaxed text-base-content/60">
+              Apply or discard the key draft before changing the physical layout
+              or layer structure.
+            </p>
           )}
         </div>
       </aside>
@@ -695,8 +979,8 @@ export default function Keyboard() {
 
         <div className="flex min-h-11 items-center gap-2 border-t border-line bg-base-200 px-4 text-xs text-base-content/60">
           <MousePointer2 aria-hidden="true" className="size-3.5" />
-          Select a key to inspect it. Changes are applied for testing and stay
-          unsaved until you save them.
+          Select a key to inspect it. Key assignments stay local until you
+          review and apply the draft.
         </div>
       </main>
 
@@ -721,15 +1005,16 @@ export default function Keyboard() {
 
         {keymap && selectedBinding ? (
           <div className="grid gap-5 p-4">
-            <div className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-sm text-base-content">
-              <p className="font-semibold text-warning">Live testing</p>
+            <div className="rounded-xl border border-primary/25 bg-primary/10 p-3 text-sm text-base-content">
+              <p className="font-semibold text-primary">Local draft</p>
               <p className="mt-1 text-xs leading-relaxed text-base-content/65">
-                Assignments are sent to the keyboard immediately, but are not
-                permanent until you choose Save to keyboard.
+                Assignments change this preview only. Review the diff before
+                sending anything to the keyboard.
               </p>
             </div>
 
             <BehaviorBindingPicker
+              key={`${selectedLayerIndex}:${selectedKeyPosition}`}
               binding={selectedBinding}
               behaviors={Object.values(behaviors)}
               layers={keymap.layers.map(({ id, name }, li) => ({

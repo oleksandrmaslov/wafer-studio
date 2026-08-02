@@ -25,12 +25,15 @@ export interface PhysicalLayoutPickerProps {
 
   selectedPhysicalLayoutIndex: number;
 
+  isDisabled?: boolean;
+
   onPhysicalLayoutClicked?: PhysicalLayoutClickCallback;
 }
 
 export const PhysicalLayoutPicker = ({
   layouts,
   selectedPhysicalLayoutIndex,
+  isDisabled,
   onPhysicalLayoutClicked,
 }: PhysicalLayoutPickerProps) => {
   const selectionChanged = useCallback(
@@ -45,11 +48,12 @@ export const PhysicalLayoutPicker = ({
       onSelectionChange={selectionChanged}
       className="flex min-w-0 flex-col gap-2"
       selectedKey={layouts[selectedPhysicalLayoutIndex].name}
+      isDisabled={isDisabled}
     >
       <Label className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-base-content/55">
         Physical layout
       </Label>
-      <Button className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-line bg-raised px-3 text-left text-sm outline-none transition hover:border-base-content/30 rac-focus-visible:ring-2 rac-focus-visible:ring-focus">
+      <Button className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-line bg-raised px-3 text-left text-sm outline-none transition hover:border-base-content/30 rac-disabled:cursor-not-allowed rac-disabled:opacity-45 rac-focus-visible:ring-2 rac-focus-visible:ring-focus">
         <SelectValue<PhysicalLayoutItem>>
           {(v) => {
             return (

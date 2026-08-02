@@ -13,11 +13,14 @@ This branch establishes the first vertical slice of the Wafer redesign:
   ZMK Studio.
 - A deterministic Wafer demo keyboard for review without physical hardware.
 - A generic inspector for every behavior reported by the connected firmware.
-- Honest live-testing state: edits are applied to volatile device memory, then
-  explicitly saved or reverted.
+- Local key-assignment drafts with undo/redo, a deterministic review diff, and
+  explicit Apply to volatile device memory.
+- A separate permanent Save step after Apply, with partial-failure recovery that
+  preserves the remaining local draft.
 
-Local Draft → diff → Apply is the next domain slice. Until that lands, the UI
-does not label live device changes as a draft.
+Layer structure and physical-layout changes still use the upstream live RPC
+flow. Wafer disables those controls while a key-assignment draft is pending;
+bringing them into the same operation planner is a later domain slice.
 
 ## Development
 
@@ -37,6 +40,14 @@ npm run build
 npm run lint
 npm run storybook
 ```
+
+## Hosted builds
+
+GitHub Pages serves the current published build at
+[oleksandrmaslov.github.io/zmk-studio](https://oleksandrmaslov.github.io/zmk-studio/).
+Pushes to `main` deploy production automatically. A reviewed development commit
+can be published intentionally with a `pages-preview-*` tag; ordinary feature
+branch pushes never replace the hosted site.
 
 ## Protocol and attribution
 

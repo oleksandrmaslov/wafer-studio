@@ -28,14 +28,21 @@ export function useUndoRedo(): [
   );
 
   const doIt = async (doCb: DoCallback, preserveRedo?: boolean) => {
-    setLocked(true);
-    const undo = await doCb();
-
-    setUndoStack([[doCb, undo], ...undoStack]);
-    if (!preserveRedo) {
-      setRedoStack([]);
+    if (locked) {
+      throw new Error("operation invoked when existing operation in progress");
     }
-    setLocked(false);
+
+    setLocked(true);
+    try {
+      const undo = await doCb();
+
+      setUndoStack((current) => [[doCb, undo], ...current]);
+      if (!preserveRedo) {
+        setRedoStack([]);
+      }
+    } finally {
+      setLocked(false);
+    }
   };
 
   const undo = async () => {
@@ -52,9 +59,11 @@ export function useUndoRedo(): [
     setUndoStack(undoStack.slice(1));
     setRedoStack([doCb, ...redoStack]);
 
-    await undoCb();
-
-    setLocked(false);
+    try {
+      await undoCb();
+    } finally {
+      setLocked(false);
+    }
   };
 
   const redo = async () => {
