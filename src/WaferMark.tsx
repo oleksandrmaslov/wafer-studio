@@ -3,7 +3,7 @@ export interface WaferMarkProps {
   compact?: boolean;
 }
 
-const waferMarkUrl = `${import.meta.env.BASE_URL}wafer-mark.svg`;
+const waferMarkUrl = `${import.meta.env.BASE_URL}wafer-mark.png`;
 
 /**
  * The supplied Wafer icon paired with a restrained product label. The image is
