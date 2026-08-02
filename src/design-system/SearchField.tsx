@@ -16,11 +16,11 @@ export function SearchField({
   onChange,
 }: SearchFieldProps) {
   return (
-    <label className="wafer-search-field">
-      <span className="sr-only">{ariaLabel}</span>
+    <div className="wafer-search-field">
       <Search aria-hidden="true" className="size-4 shrink-0" />
       <input
         type="search"
+        aria-label={ariaLabel}
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
@@ -38,6 +38,6 @@ export function SearchField({
           <X aria-hidden="true" className="size-3.5" />
         </button>
       )}
-    </label>
+    </div>
   );
 }

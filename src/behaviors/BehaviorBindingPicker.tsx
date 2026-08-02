@@ -417,6 +417,15 @@ export const BehaviorBindingPicker = ({
         ),
     [behaviors],
   );
+  const availableActionGroups = useMemo(
+    () =>
+      ACTION_GROUPS.filter(({ id }) =>
+        actionBehaviors.some(
+          (behavior) => actionPresentation(behavior).group === id,
+        ),
+      ),
+    [actionBehaviors],
+  );
 
   useEffect(() => {
     setEditor(null);
@@ -431,6 +440,15 @@ export const BehaviorBindingPicker = ({
     currentBehavior,
     currentTab,
   ]);
+
+  useEffect(() => {
+    if (
+      availableActionGroups.length > 0 &&
+      !availableActionGroups.some(({ id }) => id === activeActionGroup)
+    ) {
+      setActiveActionGroup(availableActionGroups[0].id);
+    }
+  }, [activeActionGroup, availableActionGroups]);
 
   const keyUsageDescription = useMemo(
     () =>
@@ -688,11 +706,7 @@ export const BehaviorBindingPicker = ({
               aria-label="Action category"
               className="wafer-category-strip"
             >
-              {ACTION_GROUPS.filter(({ id }) =>
-                actionBehaviors.some(
-                  (behavior) => actionPresentation(behavior).group === id,
-                ),
-              ).map(({ id, shortLabel }) => (
+              {availableActionGroups.map(({ id, shortLabel }) => (
                 <button
                   key={id}
                   type="button"

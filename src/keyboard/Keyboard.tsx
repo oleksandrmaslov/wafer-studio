@@ -1005,7 +1005,9 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               <span
                 title="Changes stay local until Review"
                 aria-label="Changes stay local until Review"
-                className="grid size-8 place-items-center rounded-full text-muted"
+                role="status"
+                tabIndex={0}
+                className="grid size-8 place-items-center rounded-full text-muted outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 <ShieldCheck aria-hidden="true" className="size-4" />
               </span>

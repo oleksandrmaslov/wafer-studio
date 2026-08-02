@@ -365,6 +365,10 @@
     color: rgb(var(--accent-foreground));
   }
 
+  .wafer-category-chip:focus-visible {
+    box-shadow: 0 0 0 2px rgb(var(--focus-ring));
+  }
+
   .wafer-key {
     border: 1px solid rgb(var(--line-default));
     border-radius: 0.55rem;

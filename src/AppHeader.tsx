@@ -328,6 +328,7 @@ export const AppHeader = ({
                 className={`flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300 ${
                   index === 0 ? "mt-1 border-t border-line-subtle pt-2" : ""
                 }`}
+                aria-label={`${finish.label}. ${finish.description}${waferFinish === finish.id ? " Selected." : ""}`}
                 onAction={() => onWaferFinishChange?.(finish.id)}
               >
                 <span className="min-w-0">
