@@ -1,334 +1,307 @@
 /**
- * Wafer aberration shader — parameter model.
+ * Wafer chromatic metal — parameter model.
  *
- * The schema is the single source of truth: the control panel is generated from
- * it, presets are validated against it, and the WebGL runtime reads uniform
- * names from it. Adding a parameter here adds a slider, a preset key, and a
- * uniform in one edit.
+ * The names follow the reference material's vocabulary so that a value read off
+ * a design tool lands here without translation. The schema is the single source
+ * of truth: the inspector is generated from it, presets are validated against
+ * it, and the WebGL runtime reads its uniform names from it.
  */
 
-export interface AberrationParamSpec {
-  /** Uniform name in the fragment shader. */
+export interface MetalParamSpec {
   readonly uniform: string;
   readonly label: string;
-  /** One line, shown under the control. Say what it does physically. */
   readonly hint: string;
   readonly min: number;
   readonly max: number;
   readonly step: number;
-  /** Controls are grouped in the inspector in this order. */
-  readonly group: "surface" | "light" | "dispersion" | "finish";
+  readonly group: "shape" | "surface" | "bands" | "finish";
+  /** Shown in the numeric field. Percent matches the reference tooling. */
+  readonly unit?: "percent" | "degrees" | "plain";
 }
 
-export const ABERRATION_PARAMS = {
+export const METAL_PARAMS = {
+  rounding: {
+    uniform: "uRounding",
+    label: "Rounding",
+    hint: "Corner radius, and how softly the dome falls to the edge.",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    group: "shape",
+    unit: "percent",
+  },
+  depth: {
+    uniform: "uDepth",
+    label: "Depth",
+    hint: "How far the surface inflates. Low values stay flat.",
+    min: 0,
+    max: 2,
+    step: 0.01,
+    group: "shape",
+    unit: "percent",
+  },
+  roughness: {
+    uniform: "uRoughness",
+    label: "Roughness",
+    hint: "Mirror to matte. Also softens the specular highlight.",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    group: "surface",
+    unit: "percent",
+  },
   scale: {
     uniform: "uScale",
     label: "Scale",
-    hint: "Size of the metal's grain structure.",
-    min: 0.5,
-    max: 12,
-    step: 0.1,
-    group: "surface",
-  },
-  detail: {
-    uniform: "uDetail",
-    label: "Detail",
-    hint: "How many octaves of structure the surface carries.",
-    min: 1,
-    max: 5,
-    step: 0.05,
-    group: "surface",
-  },
-  warp: {
-    uniform: "uWarp",
-    label: "Warp",
-    hint: "Domain distortion. Higher values pour the metal.",
-    min: 0,
-    max: 1.6,
-    step: 0.01,
-    group: "surface",
-  },
-  relief: {
-    uniform: "uRelief",
-    label: "Relief",
-    hint: "How deeply the surface is formed. Low values stay a mirror.",
-    min: 0.01,
-    max: 0.8,
-    step: 0.005,
-    group: "surface",
-  },
-  flow: {
-    uniform: "uFlow",
-    label: "Flow",
-    hint: "Speed the surface drifts at. Zero freezes it.",
-    min: 0,
-    max: 2,
-    step: 0.01,
-    group: "surface",
-  },
-  metalness: {
-    uniform: "uMetalness",
-    label: "Metalness",
-    hint: "Mirror versus matte. Low values read as anodised.",
+    hint: "Size of the reflected forms. Higher is larger.",
     min: 0,
     max: 1,
     step: 0.01,
-    group: "light",
+    group: "surface",
+    unit: "percent",
   },
-  specular: {
-    uniform: "uSpecular",
-    label: "Specular",
-    hint: "Intensity of the highlight under the light source.",
-    min: 0,
-    max: 2.5,
+  stretch: {
+    uniform: "uStretch",
+    label: "Stretch",
+    hint: "Smears reflections into anisotropic streaks.",
+    min: 0.25,
+    max: 6,
     step: 0.01,
-    group: "light",
+    group: "surface",
+    unit: "percent",
   },
-  spread: {
-    uniform: "uSpread",
-    label: "Spread",
-    hint: "How tightly the highlight focuses.",
-    min: 0.4,
+  angle: {
+    uniform: "uAngle",
+    label: "Angle",
+    hint: "Direction the streaks and the light run.",
+    min: -180,
+    max: 180,
+    step: 1,
+    group: "surface",
+    unit: "degrees",
+  },
+  evolution: {
+    uniform: "uEvolution",
+    label: "Evolution",
+    hint: "Reseeds the surface. Same value gives the same frame.",
+    min: 0,
+    max: 10,
+    step: 0.01,
+    group: "surface",
+    unit: "plain",
+  },
+  repeats: {
+    uniform: "uRepeats",
+    label: "Repeats",
+    hint: "How many times the reflection ramp cycles across the form.",
+    min: 0.25,
     max: 8,
     step: 0.05,
-    group: "light",
+    group: "bands",
+    unit: "plain",
   },
-  exposure: {
-    uniform: "uExposure",
-    label: "Exposure",
-    hint: "Overall brightness of the reflected environment.",
-    min: 0,
-    max: 2,
-    step: 0.01,
-    group: "light",
-  },
-  dispersion: {
-    uniform: "uDispersion",
-    label: "Dispersion",
-    hint: "How far the spectrum splits where the surface turns.",
-    min: 0,
-    max: 2.5,
-    step: 0.01,
-    group: "dispersion",
-  },
-  bias: {
-    uniform: "uBias",
-    label: "Edge bias",
-    hint: "Confines colour to steep edges. High values keep fills neutral.",
-    min: 0.2,
-    max: 6,
-    step: 0.05,
-    group: "dispersion",
-  },
-  saturation: {
-    uniform: "uSaturation",
-    label: "Chroma",
-    hint: "Saturation of the split, before it meets the substrate.",
-    min: 0,
-    max: 2,
-    step: 0.01,
-    group: "dispersion",
-  },
-  rotation: {
-    uniform: "uRotation",
-    label: "Rotation",
-    hint: "Rotates the spectrum around the light.",
+  rgbSplit: {
+    uniform: "uRgbSplit",
+    label: "RGB split",
+    hint: "Offsets the channels across the ramp. This is where colour comes from.",
     min: 0,
     max: 1,
-    step: 0.005,
-    group: "dispersion",
+    step: 0.01,
+    group: "bands",
+    unit: "percent",
+  },
+  offset: {
+    uniform: "uOffset",
+    label: "Offset",
+    hint: "Slides the whole ramp along the form.",
+    min: -1,
+    max: 1,
+    step: 0.01,
+    group: "bands",
+    unit: "percent",
+  },
+  phase: {
+    uniform: "uPhase",
+    label: "Phase",
+    hint: "Fine adjustment of where the bands land.",
+    min: -1,
+    max: 1,
+    step: 0.01,
+    group: "bands",
+    unit: "percent",
   },
   contrast: {
     uniform: "uContrast",
     label: "Contrast",
     hint: "Separation between the lit and unlit sides.",
-    min: 0.2,
-    max: 2.5,
+    min: 0.3,
+    max: 2.2,
     step: 0.01,
     group: "finish",
+    unit: "percent",
   },
   grain: {
     uniform: "uGrain",
     label: "Grain",
-    hint: "Sensor noise. A little keeps gradients from banding.",
+    hint: "Sensor noise. A little stops the bands from banding.",
     min: 0,
-    max: 0.35,
+    max: 0.4,
     step: 0.005,
     group: "finish",
-  },
-  vignette: {
-    uniform: "uVignette",
-    label: "Vignette",
-    hint: "Falloff toward the edges of the field.",
-    min: 0,
-    max: 1.5,
-    step: 0.01,
-    group: "finish",
+    unit: "percent",
   },
   opacity: {
     uniform: "uOpacity",
     label: "Opacity",
-    hint: "Strength of the whole field over the substrate.",
+    hint: "Strength of the material over the surface beneath it.",
     min: 0,
     max: 1,
     step: 0.01,
     group: "finish",
+    unit: "percent",
   },
-} as const satisfies Record<string, AberrationParamSpec>;
+} as const satisfies Record<string, MetalParamSpec>;
 
-export type AberrationParamKey = keyof typeof ABERRATION_PARAMS;
-export type AberrationParams = Record<AberrationParamKey, number>;
+export type MetalParamKey = keyof typeof METAL_PARAMS;
+export type MetalParams = Record<MetalParamKey, number>;
 
-export const ABERRATION_PARAM_KEYS = Object.keys(
-  ABERRATION_PARAMS
-) as AberrationParamKey[];
+export const METAL_PARAM_KEYS = Object.keys(METAL_PARAMS) as MetalParamKey[];
 
-export const ABERRATION_GROUPS = [
+export const METAL_GROUPS = [
+  { id: "shape", label: "Shape" },
   { id: "surface", label: "Surface" },
-  { id: "light", label: "Light" },
-  { id: "dispersion", label: "Dispersion" },
+  { id: "bands", label: "Bands" },
   { id: "finish", label: "Finish" },
 ] as const;
 
 /**
- * Presets are the finish levels, expressed as shader state. They are not three
- * different looks — they are one material at three amplitudes, which is why
- * `scale`, `detail`, and `warp` barely move between them while `dispersion`
- * and `specular` do.
+ * Presets are the finish levels, expressed as material state. Contrast is held
+ * high enough in all of them that ink laid over the material still clears AA.
  */
-export const ABERRATION_PRESETS = {
+export const METAL_PRESETS = {
   precision: {
-    scale: 1.3,
-    detail: 1.8,
-    warp: 0.4,
-    relief: 0.12,
-    flow: 0.14,
-    metalness: 0.74,
-    specular: 0.95,
-    spread: 2.2,
-    exposure: 0.95,
-    dispersion: 0.5,
-    bias: 2.4,
-    saturation: 0.8,
-    rotation: 0,
-    contrast: 1.05,
-    grain: 0.025,
-    vignette: 0.4,
-    opacity: 0.5,
+    rounding: 0.8,
+    depth: 0.85,
+    roughness: 0.46,
+    scale: 0.5,
+    stretch: 2.6,
+    angle: -118,
+    evolution: 0,
+    repeats: 1.8,
+    rgbSplit: 0.26,
+    offset: 0,
+    phase: -0.37,
+    contrast: 1,
+    grain: 0.03,
+    opacity: 0.85,
   },
   alloy: {
-    scale: 1.5,
-    detail: 2.1,
-    warp: 0.6,
-    relief: 0.18,
-    flow: 0.22,
-    metalness: 0.88,
-    specular: 1.2,
-    spread: 1.9,
-    exposure: 1,
-    dispersion: 1,
-    bias: 2,
-    saturation: 1.1,
-    rotation: 0,
-    contrast: 1.12,
-    grain: 0.035,
-    vignette: 0.45,
-    opacity: 0.8,
+    rounding: 0.8,
+    depth: 1.14,
+    roughness: 0.33,
+    scale: 0.42,
+    stretch: 3.25,
+    angle: -118,
+    evolution: 0,
+    repeats: 3,
+    rgbSplit: 0.58,
+    offset: 0,
+    phase: -0.37,
+    contrast: 1.08,
+    grain: 0.045,
+    opacity: 1,
   },
   prism: {
-    scale: 1.7,
-    detail: 2.4,
-    warp: 0.8,
-    relief: 0.26,
-    flow: 0.32,
-    metalness: 0.95,
-    specular: 1.5,
-    spread: 1.5,
-    exposure: 1.05,
-    dispersion: 1.7,
-    bias: 1.6,
-    saturation: 1.45,
-    rotation: 0,
-    contrast: 1.2,
-    grain: 0.045,
-    vignette: 0.5,
+    rounding: 0.8,
+    depth: 1.45,
+    roughness: 0.22,
+    scale: 0.38,
+    stretch: 4.2,
+    angle: -118,
+    evolution: 0,
+    repeats: 4.4,
+    rgbSplit: 0.82,
+    offset: 0,
+    phase: -0.37,
+    contrast: 1.18,
+    grain: 0.06,
     opacity: 1,
   },
-  /** The mark itself: tight, bright, heavily dispersed, nearly still. */
+  /** The mark's own material, tuned from the app icon. */
   mark: {
-    scale: 1.1,
-    detail: 2.3,
-    warp: 1,
-    relief: 0.36,
-    flow: 0.1,
-    metalness: 1,
-    specular: 1.9,
-    spread: 1.1,
-    exposure: 1.15,
-    dispersion: 2.1,
-    bias: 1.3,
-    saturation: 1.7,
-    rotation: 0.1,
-    contrast: 1.3,
+    rounding: 0.62,
+    depth: 1.28,
+    roughness: 0.29,
+    scale: 0.74,
+    stretch: 1.29,
+    angle: 116,
+    evolution: 0,
+    repeats: 2,
+    rgbSplit: 0.46,
+    offset: 0,
+    phase: 0,
+    contrast: 1.12,
     grain: 0.05,
-    vignette: 0.15,
     opacity: 1,
   },
-} as const satisfies Record<string, AberrationParams>;
+} as const satisfies Record<string, MetalParams>;
 
-export type AberrationPresetId = keyof typeof ABERRATION_PRESETS;
+export type MetalPresetId = keyof typeof METAL_PRESETS;
 
-export const ABERRATION_PRESET_LIST = [
+export const METAL_PRESET_LIST = [
   {
     id: "precision",
     label: "Precision",
-    description: "Restrained. Colour only where the surface truly turns.",
+    description: "Restrained. Broad bands, little channel separation.",
   },
   {
     id: "alloy",
     label: "Alloy",
-    description: "The reference material. Balanced metal and spectrum.",
+    description: "The reference material. Balanced streaks and spectrum.",
   },
   {
     id: "prism",
     label: "Prism",
-    description: "Full spectral response across a livelier surface.",
+    description: "Tight bands and a wide split across every edge.",
   },
   {
     id: "mark",
     label: "Mark",
-    description: "The logo's own material, for hero surfaces.",
+    description: "The app icon's material, for hero surfaces.",
   },
 ] as const satisfies readonly {
-  id: AberrationPresetId;
+  id: MetalPresetId;
   label: string;
   description: string;
 }[];
 
-export function clampParams(params: AberrationParams): AberrationParams {
+export function clampParams(params: MetalParams): MetalParams {
   const next = { ...params };
-  for (const key of ABERRATION_PARAM_KEYS) {
-    const spec = ABERRATION_PARAMS[key];
+  for (const key of METAL_PARAM_KEYS) {
+    const spec = METAL_PARAMS[key];
     const value = Number(next[key]);
     next[key] = Number.isFinite(value)
       ? Math.min(Math.max(value, spec.min), spec.max)
-      : ABERRATION_PRESETS.alloy[key];
+      : METAL_PRESETS.alloy[key];
   }
   return next;
 }
 
-export function paramsEqual(a: AberrationParams, b: AberrationParams): boolean {
-  return ABERRATION_PARAM_KEYS.every(
-    (key) => Math.abs(a[key] - b[key]) < 1e-6
-  );
+export function paramsEqual(a: MetalParams, b: MetalParams): boolean {
+  return METAL_PARAM_KEYS.every((key) => Math.abs(a[key] - b[key]) < 1e-6);
 }
 
-/** Find the preset a parameter set corresponds to, if any. */
-export function matchPreset(
-  params: AberrationParams
-): AberrationPresetId | null {
-  for (const preset of ABERRATION_PRESET_LIST) {
-    if (paramsEqual(params, ABERRATION_PRESETS[preset.id])) return preset.id;
+export function matchPreset(params: MetalParams): MetalPresetId | null {
+  for (const preset of METAL_PRESET_LIST) {
+    if (paramsEqual(params, METAL_PRESETS[preset.id])) return preset.id;
   }
   return null;
+}
+
+/** Formats a value the way the inspector's numeric field shows it. */
+export function formatParam(key: MetalParamKey, value: number): string {
+  const spec = METAL_PARAMS[key];
+  if (spec.unit === "degrees") return `${Math.round(value)}`;
+  if (spec.unit === "percent") return `${Math.round(value * 100)}`;
+  return `${Number(value.toFixed(2))}`;
 }

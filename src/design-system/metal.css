@@ -1,0 +1,221 @@
+/*
+ * Wafer design system — metal.
+ *
+ * Accent in this system is not a colour. It is a material.
+ *
+ * Nothing is highlighted with a hue: selection, commitment, and primary intent
+ * are all carried by the chromatic metal itself, published once by MetalField
+ * as `--wafer-metal-image` and sampled in viewport space by every surface that
+ * needs it. One render, any number of controls.
+ *
+ * Because the image is painted in viewport space and parallaxed against the
+ * shared light, two metal surfaces in different parts of the screen never show
+ * the same part of the material, and the whole interface shifts together when
+ * the light moves.
+ */
+
+@property --light-x {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.28;
+}
+
+@property --light-y {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.06;
+}
+
+/* Must inherit: the ring is drawn by ::after, and a registered property with
+   inherits:false resolves to its initial value on a pseudo-element rather than
+   to the value set on the originating element. */
+@property --metal-edge {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@layer base {
+  :root {
+    --light-x: 0.28;
+    --light-y: 0.06;
+
+    /* Fallback material. Used before the shader has painted, and permanently
+       when WebGL is unavailable. Achromatic on purpose: without the channel
+       split there is no honest way to fake the spectrum, and a fake rainbow
+       would look worse than clean steel. */
+    --wafer-metal-image: linear-gradient(
+      118deg,
+      rgb(var(--metal-specular)) 0%,
+      rgb(var(--metal-shadow) / 0.65) 14%,
+      rgb(var(--metal-specular)) 28%,
+      rgb(var(--metal-shadow) / 0.5) 44%,
+      rgb(var(--metal-specular)) 58%,
+      rgb(var(--metal-shadow) / 0.7) 76%,
+      rgb(var(--metal-specular)) 100%
+    );
+
+    /* The material is bigger than the viewport and slides against the light,
+       so it reads as a reflection rather than as wallpaper. */
+    --metal-size: 150vmax 150vmax;
+    --metal-position: calc(var(--light-x) * -18vmax + 9vmax)
+      calc(var(--light-y) * -18vmax + 9vmax);
+
+    --metal-edge-idle: 0.32;
+    --metal-edge-hover: 0.62;
+    --metal-edge-active: 1;
+
+    /* Amplitude of the whole material, set by the finish level. */
+    --metal-gain: 1;
+  }
+
+  :root[data-wafer-finish="precision"] {
+    --metal-gain: 0.65;
+  }
+
+  :root[data-wafer-finish="alloy"] {
+    --metal-gain: 1;
+  }
+
+  :root[data-wafer-finish="prism"] {
+    --metal-gain: 1.35;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --light-x: 0.28 !important;
+      --light-y: 0.06 !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---- Raw material -------------------------------------------------------
+     The metal itself, unmodified. For decorative surfaces only: never put text
+     directly on this, because its value range is the whole scale. */
+  .wafer-metal {
+    background-color: rgb(var(--surface-raised));
+    background-image: var(--wafer-metal-image);
+    background-attachment: fixed;
+    background-size: var(--metal-size);
+    background-position: var(--metal-position);
+  }
+
+  /* ---- Accent fill --------------------------------------------------------
+     Metal that text can sit on. A bright plate is composited over the material
+     so the surface can never fall dark enough to put `--metal-ink` below AA,
+     whatever the shader parameters are set to. The material still reads
+     through; it just cannot win an argument with legibility. */
+  .wafer-metal-fill {
+    background-color: rgb(var(--metal-plate));
+    background-image: linear-gradient(
+        rgb(var(--metal-plate) / 0.58),
+        rgb(var(--metal-plate) / 0.58)
+      ),
+      var(--wafer-metal-image);
+    background-attachment: scroll, fixed;
+    background-size: auto, var(--metal-size);
+    background-position:
+      0 0,
+      var(--metal-position);
+    color: rgb(var(--metal-ink));
+  }
+
+  /* ---- Accent edge --------------------------------------------------------
+     A one pixel ring cut from the shared material. This is the system's
+     signature and the default way a control shows it is live. */
+  .wafer-metal-edge {
+    position: relative;
+    --metal-edge: 0;
+  }
+
+  .wafer-metal-edge::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    padding: var(--hairline);
+    border-radius: inherit;
+    background-image: var(--wafer-metal-image);
+    background-attachment: fixed;
+    background-size: var(--metal-size);
+    background-position: var(--metal-position);
+    content: "";
+    opacity: clamp(0, calc(var(--metal-edge) * var(--metal-gain)), 1);
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* Gated: on touch, a tap fires :hover and the edge stays lit afterwards. */
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-metal-edge:hover:not(:disabled) {
+      --metal-edge: var(--metal-edge-hover);
+    }
+  }
+
+  .wafer-metal-edge:focus-visible,
+  .wafer-metal-edge:focus-within {
+    --metal-edge: var(--metal-edge-hover);
+  }
+
+  .wafer-metal-edge[data-selected="true"],
+  .wafer-metal-edge[aria-pressed="true"],
+  .wafer-metal-edge[aria-expanded="true"] {
+    --metal-edge: var(--metal-edge-active);
+  }
+
+  .wafer-metal-edge:disabled,
+  .wafer-metal-edge[aria-disabled="true"] {
+    --metal-edge: 0;
+  }
+
+  /* ---- Chip ---------------------------------------------------------------
+     A small solid sample of the material, for swatches and icon slots. */
+  .wafer-metal-chip {
+    display: block;
+    background-color: rgb(var(--metal-plate));
+    background-image: var(--wafer-metal-image);
+    background-attachment: fixed;
+    background-size: var(--metal-size);
+    background-position: var(--metal-position);
+    box-shadow: inset 0 0 0 1px rgb(var(--line-strong) / 0.5);
+  }
+
+  /* ---- Substrate ----------------------------------------------------------
+     Large surfaces catch the same light achromatically, so the canvas reads as
+     a milled panel rather than a flat div, without a single bevel. */
+  .wafer-substrate {
+    background-image: radial-gradient(
+      circle 56vmax at calc(var(--light-x) * 100vw) calc(var(--light-y) * 100vh),
+      rgb(var(--metal-specular) / 0.07),
+      rgb(var(--metal-specular) / 0.02) 30%,
+      rgb(var(--metal-specular) / 0) 62%
+    );
+    background-attachment: fixed;
+  }
+
+  /* ---- Rule ---------------------------------------------------------------
+     A hairline made of the material, for panel edges and header underlines. */
+  .wafer-rule {
+    height: var(--hairline);
+    border: 0;
+    margin: 0;
+    background-image: var(--wafer-metal-image);
+    background-attachment: fixed;
+    background-size: var(--metal-size);
+    background-position: var(--metal-position);
+    opacity: clamp(0, calc(0.55 * var(--metal-gain)), 1);
+  }
+
+  /* The mark wears the material at full strength. */
+  .wafer-mark-tile {
+    --metal-edge: var(--metal-edge-active);
+  }
+}

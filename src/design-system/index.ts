@@ -16,17 +16,18 @@ export {
   type DispersionControls,
 } from "./dispersionContext.ts";
 
-export { AberrationCanvas } from "./shader/AberrationCanvas.tsx";
-export { AberrationControls } from "./shader/AberrationControls.tsx";
-export { useAberration } from "./shader/useAberration.ts";
+export { MetalCanvas, type MetalCanvasProps } from "./shader/MetalCanvas.tsx";
+export { MetalControls } from "./shader/MetalControls.tsx";
+export { MetalField } from "./shader/MetalField.tsx";
+export { useMetal } from "./shader/useMetal.ts";
 export {
-  ABERRATION_PARAMS,
-  ABERRATION_PARAM_KEYS,
-  ABERRATION_PRESETS,
-  ABERRATION_PRESET_LIST,
+  METAL_PARAMS,
+  METAL_PARAM_KEYS,
+  METAL_PRESETS,
+  METAL_PRESET_LIST,
   clampParams,
   matchPreset,
-  type AberrationParamKey,
-  type AberrationParams,
-  type AberrationPresetId,
+  type MetalParamKey,
+  type MetalParams,
+  type MetalPresetId,
 } from "./shader/params.ts";

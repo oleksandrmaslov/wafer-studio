@@ -1,24 +1,18 @@
 import { useEffect, useRef } from "react";
-import { ABERRATION_FRAG, ABERRATION_VERT } from "./aberration.glsl.ts";
-import {
-  ABERRATION_PARAMS,
-  ABERRATION_PARAM_KEYS,
-  type AberrationParams,
-} from "./params.ts";
+import { METAL_FRAG, METAL_VERT } from "./chromaticMetal.glsl.ts";
+import { METAL_PARAMS, METAL_PARAM_KEYS, type MetalParams } from "./params.ts";
 
 /**
- * Renders the aberration shader into a canvas.
+ * Renders the chromatic metal into a canvas.
  *
- * The canvas is decorative and never carries meaning, so it is `aria-hidden`
- * and sits behind content. If WebGL is unavailable or the program fails to
- * link, the canvas removes itself and the CSS specular field underneath is what
- * you see — the interface degrades to the quiet finish rather than to nothing.
+ * Decorative and never load-bearing, so it is aria-hidden. If WebGL is missing
+ * or the program fails to link the canvas removes itself, and the CSS metal
+ * underneath is what remains.
  */
 
-/** Above this the cost stops buying visible quality on a soft gradient field. */
 const MAX_DPR = 1.5;
 
-interface CompiledProgram {
+interface Compiled {
   program: WebGLProgram;
   uniforms: Record<string, WebGLUniformLocation | null>;
   buffer: WebGLBuffer;
@@ -35,7 +29,7 @@ function compile(
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     if (import.meta.env.DEV) {
-      console.warn("Aberration shader failed:", gl.getShaderInfoLog(shader));
+      console.warn("Metal shader failed:", gl.getShaderInfoLog(shader));
     }
     gl.deleteShader(shader);
     return null;
@@ -43,9 +37,9 @@ function compile(
   return shader;
 }
 
-function build(gl: WebGLRenderingContext): CompiledProgram | null {
-  const vert = compile(gl, gl.VERTEX_SHADER, ABERRATION_VERT);
-  const frag = compile(gl, gl.FRAGMENT_SHADER, ABERRATION_FRAG);
+export function buildMetalProgram(gl: WebGLRenderingContext): Compiled | null {
+  const vert = compile(gl, gl.VERTEX_SHADER, METAL_VERT);
+  const frag = compile(gl, gl.FRAGMENT_SHADER, METAL_FRAG);
   if (!vert || !frag) return null;
 
   const program = gl.createProgram();
@@ -60,13 +54,12 @@ function build(gl: WebGLRenderingContext): CompiledProgram | null {
 
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     if (import.meta.env.DEV) {
-      console.warn("Aberration link failed:", gl.getProgramInfoLog(program));
+      console.warn("Metal link failed:", gl.getProgramInfoLog(program));
     }
     gl.deleteProgram(program);
     return null;
   }
 
-  // One triangle covering the clip volume — cheaper than a quad, no seam.
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(
     gl.ARRAY_BUFFER,
@@ -79,15 +72,11 @@ function build(gl: WebGLRenderingContext): CompiledProgram | null {
 
   const names = [
     "uResolution",
-    "uTime",
     "uLight",
-    "uSpectrumA",
-    "uSpectrumB",
-    "uSpectrumC",
-    "uSpectrumD",
     "uMetalLow",
     "uMetalHigh",
-    ...ABERRATION_PARAM_KEYS.map((key) => ABERRATION_PARAMS[key].uniform),
+    "uShape",
+    ...METAL_PARAM_KEYS.map((key) => METAL_PARAMS[key].uniform),
   ];
   const uniforms: Record<string, WebGLUniformLocation | null> = {};
   for (const name of names) {
@@ -97,30 +86,63 @@ function build(gl: WebGLRenderingContext): CompiledProgram | null {
   return { program, uniforms, buffer };
 }
 
-/** Reads an `R G B` custom property and normalises it to 0..1. */
-function readChannel(styles: CSSStyleDeclaration, name: string): [number, number, number] {
+export function readChannel(
+  styles: CSSStyleDeclaration,
+  name: string
+): [number, number, number] {
   const raw = styles.getPropertyValue(name).trim();
   const parts = raw.split(/[\s,/]+/).map(Number).filter(Number.isFinite);
   if (parts.length < 3) return [0.5, 0.5, 0.5];
   return [parts[0] / 255, parts[1] / 255, parts[2] / 255];
 }
 
-export interface AberrationCanvasProps {
-  params: AberrationParams;
+/** Pushes every uniform for one frame. Shared with the offscreen field. */
+export function applyMetalUniforms(
+  gl: WebGLRenderingContext,
+  compiled: Compiled,
+  params: MetalParams,
+  options: {
+    width: number;
+    height: number;
+    light: [number, number];
+    low: [number, number, number];
+    high: [number, number, number];
+    shape: number;
+  }
+) {
+  const u = compiled.uniforms;
+  gl.uniform2f(u.uResolution, options.width, options.height);
+  gl.uniform2f(u.uLight, options.light[0], options.light[1]);
+  gl.uniform3fv(u.uMetalLow, options.low);
+  gl.uniform3fv(u.uMetalHigh, options.high);
+  gl.uniform1f(u.uShape, options.shape);
+
+  for (const key of METAL_PARAM_KEYS) {
+    const spec = METAL_PARAMS[key];
+    const value = key === "angle" ? (params[key] * Math.PI) / 180 : params[key];
+    gl.uniform1f(u[spec.uniform], value);
+  }
+}
+
+export interface MetalCanvasProps {
+  params: MetalParams;
   className?: string;
-  /** Stops the loop without unmounting — for offscreen or inactive panels. */
+  /** True cuts a rounded box; false fills the canvas edge to edge. */
+  shaped?: boolean;
   paused?: boolean;
 }
 
-export function AberrationCanvas({
+export function MetalCanvas({
   params,
   className,
+  shaped = false,
   paused = false,
-}: AberrationCanvasProps) {
+}: MetalCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Params live in a ref so changing a slider never rebuilds the GL context.
   const latest = useRef(params);
   latest.current = params;
+  const shapedRef = useRef(shaped);
+  shapedRef.current = shaped;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
@@ -128,7 +150,6 @@ export function AberrationCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // A previous mount may have hidden it after a failure.
     canvas.style.removeProperty("display");
 
     const gl =
@@ -146,7 +167,7 @@ export function AberrationCanvas({
       return;
     }
 
-    const built = build(gl);
+    const built = buildMetalProgram(gl);
     if (!built) {
       canvas.style.display = "none";
       return;
@@ -154,33 +175,17 @@ export function AberrationCanvas({
     gl.useProgram(built.program);
 
     const root = document.documentElement;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const scheme = window.matchMedia("(prefers-color-scheme: dark)");
 
-    // Palette comes from the same tokens the rest of the system uses, so the
-    // shader re-skins with the theme instead of hard-coding its own colours.
-    let palette = {
-      a: [0, 0, 0] as [number, number, number],
-      b: [0, 0, 0] as [number, number, number],
-      c: [0, 0, 0] as [number, number, number],
-      d: [0, 0, 0] as [number, number, number],
-      low: [0, 0, 0] as [number, number, number],
-      high: [1, 1, 1] as [number, number, number],
-    };
+    let low: [number, number, number] = [0, 0, 0];
+    let high: [number, number, number] = [1, 1, 1];
     const readPalette = () => {
       const styles = getComputedStyle(root);
-      palette = {
-        a: readChannel(styles, "--spectral-azure"),
-        b: readChannel(styles, "--spectral-violet"),
-        c: readChannel(styles, "--spectral-coral"),
-        d: readChannel(styles, "--spectral-amber"),
-        low: readChannel(styles, "--metal-shadow"),
-        high: readChannel(styles, "--metal-specular"),
-      };
+      low = readChannel(styles, "--metal-shadow");
+      high = readChannel(styles, "--metal-specular");
     };
     readPalette();
 
-    // Cached because reading it per frame would force layout every frame.
     let rect = canvas.getBoundingClientRect();
     let width = 0;
     let height = 0;
@@ -201,16 +206,11 @@ export function AberrationCanvas({
 
     let frame: number | null = null;
     let visible = true;
-    const start = performance.now();
 
     const render = () => {
       frame = requestAnimationFrame(render);
       if (!visible || pausedRef.current || width === 0) return;
 
-      const p = latest.current;
-
-      // The shared light, in this canvas's local space. Read from the inline
-      // style DispersionField writes, which costs no style recalculation.
       const lx = parseFloat(root.style.getPropertyValue("--light-x")) || 0.28;
       const ly = parseFloat(root.style.getPropertyValue("--light-y")) || 0.06;
       const localX = rect.width
@@ -220,23 +220,14 @@ export function AberrationCanvas({
         ? (ly * window.innerHeight - rect.top) / rect.height
         : 0.5;
 
-      const u = built.uniforms;
-      gl.uniform2f(u.uResolution, width, height);
-      gl.uniform1f(
-        u.uTime,
-        reduced.matches ? 0 : (performance.now() - start) / 1000
-      );
-      gl.uniform2f(u.uLight, localX, localY);
-      gl.uniform3fv(u.uSpectrumA, palette.a);
-      gl.uniform3fv(u.uSpectrumB, palette.b);
-      gl.uniform3fv(u.uSpectrumC, palette.c);
-      gl.uniform3fv(u.uSpectrumD, palette.d);
-      gl.uniform3fv(u.uMetalLow, palette.low);
-      gl.uniform3fv(u.uMetalHigh, palette.high);
-
-      for (const key of ABERRATION_PARAM_KEYS) {
-        gl.uniform1f(u[ABERRATION_PARAMS[key].uniform], p[key]);
-      }
+      applyMetalUniforms(gl, built, latest.current, {
+        width,
+        height,
+        light: [localX, localY],
+        low,
+        high,
+        shape: shapedRef.current ? 1 : 0,
+      });
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
@@ -246,7 +237,6 @@ export function AberrationCanvas({
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
 
-    // Off-screen canvases stop costing anything.
     const intersection = new IntersectionObserver(
       ([entry]) => {
         visible = entry.isIntersecting;
@@ -262,7 +252,10 @@ export function AberrationCanvas({
       visible = !document.hidden;
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    window.addEventListener("scroll", onScroll, {
+      passive: true,
+      capture: true,
+    });
     window.addEventListener("resize", resize, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
     scheme.addEventListener("change", readPalette);
@@ -277,11 +270,9 @@ export function AberrationCanvas({
       scheme.removeEventListener("change", readPalette);
       gl.deleteBuffer(built.buffer);
       gl.deleteProgram(built.program);
-      // Deliberately not calling WEBGL_lose_context here. A canvas hands back
-      // the same context object on every getContext call, so losing it would
-      // leave StrictMode's second mount holding a dead context and the surface
-      // would silently disappear in development. The context is released with
-      // the canvas element anyway.
+      // Not calling WEBGL_lose_context: a canvas hands back the same context
+      // object, so losing it would leave StrictMode's second mount holding a
+      // dead one and the surface would silently vanish in development.
     };
   }, []);
 
