@@ -6,7 +6,7 @@ import {
   type MetalPresetId,
 } from "./params.ts";
 
-const STORAGE_KEY = "wafer.metal.v2";
+const STORAGE_KEY = "wafer.metal.v3";
 
 function readInitial(preset: MetalPresetId): MetalParams {
   const fallback = METAL_PRESETS[preset];
@@ -32,7 +32,7 @@ export interface UseMetalResult {
  * clamped to the schema first, so a stale or corrupt entry can never break the
  * surface.
  */
-export function useMetal(initialPreset: MetalPresetId = "action"): UseMetalResult {
+export function useMetal(initialPreset: MetalPresetId = "button"): UseMetalResult {
   const [params, setParamsState] = useState<MetalParams>(() =>
     readInitial(initialPreset)
   );

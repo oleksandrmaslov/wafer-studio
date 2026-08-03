@@ -11,37 +11,46 @@ anywhere in the product.
 
 ## Chromatic metal
 
-Modelled on Figma's shader of the same name, which is shape-driven rather than
-texture-driven. Four steps:
+Independently implemented, inspired by iridescent metals and thin-film
+interference. The parameter names match the reference material's so tuning
+transfers by eye; the algorithm is our own.
 
-1. **Bevel the shape.** A height field rolls off over `rounding` pixels at each
-   edge. `depth` sets how steeply it turns.
-2. **Take the normal** of that bevel.
-3. **Find one coordinate** from it, and look that up in a **grayscale** gradient
-   ramp tiled `repeats` times. This is what produces chrome's banding.
-4. **Sample the ramp three times**, once per channel, at positions `rgbSplit`
-   apart.
+The layers, in order:
 
-Step 4 is the one worth understanding. **The ramp contains no hue at all.**
-Colour appears only where the ramp changes fastest, because that is where the
-three channel samples disagree most. Flat regions stay perfectly achromatic no
-matter how high the split goes, which is why the rainbows land in tight bands
-along the bevel rather than washing across the surface.
+| Layer | Job |
+| --- | --- |
+| Shape field | Rounded rectangle, or an SDF mask for the mark |
+| Height field | Dome plus FBM dents, domain-warped |
+| Normals | Screen-space derivatives of that height |
+| Anisotropy | Bands stretched along `angle`, at `scale` and `stretch` |
+| Gradient | A **colour** ramp, tiled `repeats` times |
+| RGB separation | Red and blue sampled either side of green |
+| Specular | Sharp and broad Blinn-Phong lobes |
+| Fresnel rim | Drives the silhouette toward white |
+| Grain | Micro-roughness |
 
-### The ramp coordinate has two terms
+### Three things that decide whether it reads as metal
 
-```
-t = (base + bend) * scale + offset
-```
+These were each learned the hard way, and each one alone is enough to ruin it.
 
-- **base** is a linear sweep across the shape. It makes the bands run straight
-  through the flat interior.
-- **bend** is the bevel refracting that sweep. It makes them compress and fan
-  out around the rim.
+**Metal has no diffuse term.** What you see is the environment, reflected.
+Multiplying the ramp by a diffuse factor and adding specular on top flattens the
+whole thing into pastel mush. The environment goes through essentially
+untouched; only Fresnel, a tight specular lobe, and a shadow term act on it.
 
-The normal alone gives contour rings parallel to the outline. Position alone
-gives flat stripes with no metal in them. It is the sum that reads as a
-reflection.
+**The gradient is mostly white.** It is a studio reflected in chrome: white and
+silver across most of its length, one genuinely dark gap, and the dispersed
+colour packed into a narrow slice beside that gap. Spreading colour evenly
+across the ramp produces an oil slick every time. Colour lives in the ramp, not
+in the RGB split; deriving it from channel separation on a grey ramp gives
+brushed steel instead.
+
+**The band coordinate must not be steepened.** Pushing it toward a square wave
+collapses it to 0 and 1, and with an integer `repeats` both ends land on the
+same ramp position, so the surface floods with a single colour and the gradient
+is only ever visible in the transitions. Hard edges belong in the gradient's
+stops. For the same reason the domain warp on the bands stays small: chrome is
+anisotropic streaks, and heavy warp turns them into marbling.
 
 ## Two implementations
 
@@ -55,8 +64,14 @@ entering wall of the dark band, warm on the leaving one.
 
 | Token | Use |
 | --- | --- |
-| `--metal-ramp` | Full range. Edges, marks, decorative fills. |
-| `--metal-ramp-bright` | Floor lifted to `#8F9AA4`. Anything carrying text. |
+| `--metal-texture` | Spectral, baked from the shader. Edges, marks, fills. |
+| `--metal-texture-bright` | Silver, baked. Anything carrying text. |
+| `--metal-ramp` / `--metal-ramp-bright` | CSS gradient fallbacks of the same stops. |
+
+`<MetalTextures />` renders the real shader once offscreen and publishes both as
+custom properties. A WebGL context per chip is the most expensive mistake
+available here, so dozens of controls share two baked images and the chrome on a
+chip is the same material as the hero rather than a gradient imitating it.
 
 The bands rotate with `--light-x`, so a pointer sweep moves the reflection
 across every metal surface on the page at once.
@@ -79,21 +94,22 @@ to behave differently.
 
 | Role | For |
 | --- | --- |
-| Action | Text-bearing fills. Lifted floor keeps labels legible. |
-| Edge | Selection rings and small chrome. |
-| Mark | The logo's material. |
-| Panel | Broad bands for hero surfaces. |
+| Button | Primary actions and hero fills. |
+| Keycap | Selected keys. |
+| Logo | The mark's material. |
+| Silver | Monochrome. High contrast and text-bearing fills. |
 
 ## Contrast
 
 This is the part a metallic accent gets wrong, so it is fixed by construction
 rather than by inspection.
 
-Text never sits on the full-range ramp. It sits on `--metal-ramp-bright`, whose
-darkest band is `#8F9AA4`. Against `--metal-ink` (`#0D0F11`) that is **6.7:1**,
-so a label clears WCAG AA against the *worst* point of the material, not against
-its average. The shader's `floor` parameter does the same job, which is why the
-Action role sets it high and Panel does not.
+Text never sits on the spectral ramp. It sits on silver, whose darkest band is
+`#8F9AA4`. Against `--metal-ink` (`#0D0F11`) that is **6.7:1**, so a label
+clears WCAG AA against the *worst* point of the material, not against its
+average. High-contrast mode goes further: `adaptPresetForTheme` drops the split
+to 0.08 and forces the silver ramp, because colour must never be the only
+signal.
 
 Disabled drops the material entirely. A greyed label over live chrome still
 reads as available.

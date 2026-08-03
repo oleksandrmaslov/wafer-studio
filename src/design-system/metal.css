@@ -1,18 +1,21 @@
 /*
- * Chromatic metal, as CSS.
+ * Chromatic metal, applied across the product.
  *
- * The shader is the reference implementation, but a canvas per control would be
- * absurd for chips and rows. These ramps are the same material expressed as a
- * gradient: identical profile (bright, into a hard dark band, back to bright)
- * with the RGB-split fringes baked in as stops, cool on the entering wall and
- * warm on the leaving one.
+ * A WebGL context per chip is not an option, so the real shader is baked once
+ * to two images by <MetalTextures /> and published as:
  *
- * Two ramps, because contrast is not negotiable:
+ *   --metal-texture         spectral. Edges, marks, decorative fills.
+ *   --metal-texture-bright  silver. Anything carrying text.
  *
- *   --metal-ramp         full range. Decorative fills, edges, marks.
- *   --metal-ramp-bright  floor lifted to #8F9AA4. Anything carrying text, so
- *                        near-black ink always clears AA against the darkest
- *                        band (6.8:1) rather than only against the average.
+ * Every surface below reaches for the texture first and falls back to a CSS
+ * gradient of the same stops. So the chrome on a chip is the same material as
+ * the hero, not a gradient imitating it, and the page still looks right with no
+ * WebGL at all.
+ *
+ * The two-material split is not stylistic. Text never sits on the spectral
+ * ramp; it sits on silver, whose darkest band is #8F9AA4 and therefore clears
+ * WCAG AA against near-black ink at the WORST point of the material rather than
+ * its average.
  *
  * This replaces the flat accent entirely. The product has no orange fill left;
  * what used to be "the accent colour" is now "the material".
@@ -46,34 +49,30 @@
     --metal-angle: calc(116deg + (var(--light-x) - 0.5) * 90deg);
     --metal-repeat: 46%;
 
+    /* The spectral ramp, matching the shader's gradient stops: white, into
+       cyan, into deep blue, into magenta, out to warm yellow. This is where the
+       material's colour lives. Deriving hue from channel separation alone gives
+       brushed steel, not this. */
     --metal-ramp: repeating-linear-gradient(
       var(--metal-angle),
       #ffffff 0%,
-      #dfe5ea calc(var(--metal-repeat) * 0.18),
-      #98a3ac calc(var(--metal-repeat) * 0.27),
-      #5f6f8c calc(var(--metal-repeat) * 0.31),
-      #2f5fd0 calc(var(--metal-repeat) * 0.35),
-      #131c3c calc(var(--metal-repeat) * 0.39),
-      #0a0c10 calc(var(--metal-repeat) * 0.45),
-      #2a1408 calc(var(--metal-repeat) * 0.5),
-      #8a3a10 calc(var(--metal-repeat) * 0.55),
-      #e07a2e calc(var(--metal-repeat) * 0.59),
-      #d8b48a calc(var(--metal-repeat) * 0.64),
-      #b9c2c9 calc(var(--metal-repeat) * 0.72),
-      #e9eef2 calc(var(--metal-repeat) * 0.86),
+      #bfdfff calc(var(--metal-repeat) * 0.2),
+      #153aff calc(var(--metal-repeat) * 0.43),
+      #f92b78 calc(var(--metal-repeat) * 0.68),
+      #ffe989 calc(var(--metal-repeat) * 0.86),
       #ffffff var(--metal-repeat)
     );
 
+    /* Monochrome silver. No hue, so this is the ramp for anything carrying
+       text: near-black ink clears AA against its darkest band (#8F9AA4). */
     --metal-ramp-bright: repeating-linear-gradient(
       var(--metal-angle),
       #ffffff 0%,
       #eef2f5 calc(var(--metal-repeat) * 0.2),
-      #c3ced9 calc(var(--metal-repeat) * 0.33),
-      #a3b4d4 calc(var(--metal-repeat) * 0.41),
-      #8f9aa4 calc(var(--metal-repeat) * 0.48),
-      #c8a98f calc(var(--metal-repeat) * 0.57),
-      #e8d5c2 calc(var(--metal-repeat) * 0.65),
-      #f4f7f9 calc(var(--metal-repeat) * 0.8),
+      #c3ced9 calc(var(--metal-repeat) * 0.34),
+      #8f9aa4 calc(var(--metal-repeat) * 0.5),
+      #c8ced6 calc(var(--metal-repeat) * 0.66),
+      #f4f7f9 calc(var(--metal-repeat) * 0.84),
       #ffffff var(--metal-repeat)
     );
 
@@ -110,7 +109,9 @@
      For surfaces that carry a label. Always the bright ramp. */
   .wafer-metal {
     background-color: #cfd6dc;
-    background-image: var(--metal-ramp-bright);
+    background-image: var(--metal-texture-bright, var(--metal-ramp-bright));
+    background-size: cover;
+    background-position: center;
     color: rgb(var(--metal-ink));
   }
 
@@ -119,6 +120,7 @@
   @media (hover: hover) and (pointer: fine) {
     .wafer-metal:hover:not(:disabled):not([data-disabled]) {
       --metal-repeat: 38%;
+      background-position: 42% center;
     }
   }
 
@@ -149,7 +151,9 @@
     inset: 0;
     padding: 1px;
     border-radius: inherit;
-    background-image: var(--metal-ramp);
+    background-image: var(--metal-texture, var(--metal-ramp));
+    background-size: cover;
+    background-position: center;
     content: "";
     opacity: clamp(0, calc(var(--metal-strength) * var(--metal-gain)), 1);
     pointer-events: none;
@@ -192,7 +196,8 @@
     height: 1px;
     border: 0;
     margin: 0;
-    background-image: var(--metal-ramp);
+    background-image: var(--metal-texture, var(--metal-ramp));
+    background-size: cover;
     opacity: clamp(0, calc(0.55 * var(--metal-gain)), 1);
   }
 
@@ -213,7 +218,8 @@
      Only for large display type. Never for body, labels, or anything that has
      to be read quickly: clipped gradient text has no reliable contrast. */
   .wafer-metal-text {
-    background-image: var(--metal-ramp-bright);
+    background-image: var(--metal-texture-bright, var(--metal-ramp-bright));
+    background-size: cover;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;

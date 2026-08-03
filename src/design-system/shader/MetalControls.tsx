@@ -4,13 +4,73 @@ import {
   METAL_GROUPS,
   METAL_PARAMS,
   METAL_PARAM_KEYS,
+  METAL_PRESETS,
   METAL_PRESET_LIST,
+  gradientToCss,
+  hexToColor,
   matchPreset,
+  stopToHex,
   type MetalParamKey,
   type MetalParams,
   type MetalParamSpec,
   type MetalPresetId,
 } from "./params.ts";
+
+/**
+ * The gradient editor.
+ *
+ * Colour comes from these stops, not from the RGB split, so this is the most
+ * consequential control in the panel and it gets real editing rather than a
+ * preview swatch.
+ */
+function GradientEditor({
+  params,
+  onChange,
+}: {
+  params: MetalParams;
+  onChange: (params: MetalParams) => void;
+}) {
+  return (
+    <div className="grid gap-2 py-2">
+      <div
+        aria-hidden="true"
+        className="h-10 rounded-control border border-line-subtle"
+        style={{ backgroundImage: gradientToCss(params.gradient) }}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {params.gradient.map((stop, index) => (
+          <label
+            key={`${index}-${stop.position}`}
+            className="grid gap-1 text-center"
+          >
+            <span className="sr-only">
+              {`Gradient stop ${index + 1} colour`}
+            </span>
+            <input
+              type="color"
+              value={stopToHex(stop)}
+              onChange={(event) => {
+                const next = params.gradient.map((existing, i) =>
+                  i === index
+                    ? { ...existing, color: hexToColor(event.currentTarget.value) }
+                    : existing
+                );
+                onChange({ ...params, gradient: next });
+              }}
+              className="h-7 w-9 cursor-pointer rounded border border-line-subtle bg-transparent p-0.5"
+            />
+            <span className="font-mono text-[0.5625rem] tabular-nums text-tertiary">
+              {Math.round(stop.position * 100)}
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="text-[0.625rem] leading-snug text-tertiary">
+        Stop colours and positions. All of the material's hue comes from here.
+      </p>
+    </div>
+  );
+}
 
 /**
  * The material inspector.
@@ -122,7 +182,11 @@ export function MetalControls({
                   <span
                     aria-hidden="true"
                     className="size-3.5 rounded-full"
-                    style={{ backgroundImage: "var(--metal-ramp)" }}
+                    style={{
+                      backgroundImage: gradientToCss(
+                        METAL_PRESETS[preset.id].gradient
+                      ),
+                    }}
                   />
                 </span>
                 <span className="min-w-0">
@@ -147,6 +211,9 @@ export function MetalControls({
               {group.label}
             </h3>
             <div className="divide-y divide-line-subtle/60">
+              {group.id === "gradient" ? (
+                <GradientEditor params={params} onChange={onChange} />
+              ) : null}
               {METAL_PARAM_KEYS.filter(
                 (key) => METAL_PARAMS[key].group === group.id
               ).map((key) => (
@@ -165,7 +232,7 @@ export function MetalControls({
       <div className="flex shrink-0 items-center gap-2 border-t border-line-subtle p-3">
         <button
           type="button"
-          onClick={() => onPreset("panel")}
+          onClick={() => onPreset("button")}
           className="wafer-button wafer-metal-edge flex-1"
         >
           <RotateCcw aria-hidden="true" className="size-3.5" />

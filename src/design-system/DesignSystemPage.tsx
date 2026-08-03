@@ -3,6 +3,7 @@ import { Bluetooth, Layers, Search as SearchIcon } from "lucide-react";
 import { DispersionField } from "./DispersionField.tsx";
 import { MetalSurface } from "./shader/MetalSurface.tsx";
 import { MetalControls } from "./shader/MetalControls.tsx";
+import { MetalTextures } from "./shader/MetalTextures.tsx";
 import { useMetal } from "./shader/useMetal.ts";
 import { METAL_PRESETS } from "./shader/params.ts";
 import { ActionRow } from "./ActionRow.tsx";
@@ -86,7 +87,7 @@ function Specimens() {
 
       <Section
         title="The ramp"
-        law="A grayscale gradient, tiled. There is no hue anywhere in it. Colour appears only because the red, green, and blue channels sample it at three slightly different positions, so the fringes land where the ramp changes fastest and flat regions stay achromatic at any split."
+        law="What the metal reflects. Mostly white and silver, with one genuinely dark gap and the dispersed colour packed into a narrow slice beside it. Spreading colour across the whole ramp is what turns chrome into an oil slick. RGB split then samples this ramp three times, a fraction apart, fringing every band edge."
       >
         <div className="grid gap-2">
           <div
@@ -130,7 +131,7 @@ function Specimens() {
 
       <Section
         title="Controls"
-        law="Every primary and selected state below wears the material. Nothing is tinted. Contrast is carried by the bright ramp's lifted floor, so the labels stay legible wherever the bands land."
+        law="Every primary and selected state below wears the material. Nothing is tinted. Text never sits on the spectral ramp; it sits on silver, whose darkest band clears AA against near-black ink, so labels stay legible wherever the reflection lands."
       >
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="grid content-start gap-2">
@@ -162,9 +163,9 @@ function Specimens() {
               </button>
             </div>
             <div className="relative mt-1 h-14 overflow-hidden rounded-control">
-              <MetalSurface params={METAL_PRESETS.action} />
+              <MetalSurface params={METAL_PRESETS.button} />
               <span className="absolute inset-0 grid place-items-center text-sm font-bold tracking-wide text-[#0d0f11]">
-                SHADER FILL
+                LIVE SHADER
               </span>
             </div>
           </div>
@@ -228,7 +229,7 @@ function Specimens() {
 }
 
 export function DesignSystemPage() {
-  const { params, setParams, applyPreset } = useMetal("panel");
+  const { params, setParams, applyPreset } = useMetal("button");
   const [finish, setFinish] = useWaferFinish();
   const [copied, setCopied] = useState(false);
 
@@ -244,11 +245,12 @@ export function DesignSystemPage() {
 
   return (
     <DispersionField>
+      <MetalTextures spectral={params} />
       <div className="wafer-substrate grid h-full grid-rows-[auto_minmax(0,1fr)] bg-canvas">
         <header className="flex items-center justify-between gap-4 border-b border-line-subtle bg-panel/80 px-4 py-2.5">
           <div className="flex items-center gap-3">
             <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-[22%]">
-              <MetalSurface params={METAL_PRESETS.mark} />
+              <MetalSurface params={METAL_PRESETS.logo} />
             </span>
             <span className="leading-none">
               <span className="block text-sm font-extrabold tracking-[0.14em] text-ink">
@@ -276,7 +278,7 @@ export function DesignSystemPage() {
           <main className="min-h-0 overflow-y-auto">
             <div className="relative isolate">
               <div className="absolute inset-0 -z-10">
-                <MetalSurface params={params} radius={0} />
+                <MetalSurface params={params} />
               </div>
               {/* Text contrast must never depend on a shader parameter, so the
                   copy sits on a scrim rather than on a blend mode. */}
@@ -293,10 +295,10 @@ export function DesignSystemPage() {
                   The accent is a material, not a colour.
                 </h1>
                 <p className="max-w-prose text-xs leading-relaxed text-muted">
-                  Chromatic metal bevels the shape, takes the normal of that
-                  bevel, and reads it into a grayscale ramp. The rainbow is not
-                  painted on. It is the red, green, and blue channels sampling
-                  that ramp a fraction apart.
+                  Chromatic metal domes the shape, takes the normal of that
+                  surface, and reflects a banded environment off it. Metal has
+                  no diffuse term: what you see is the reflection, stretched
+                  along one axis and split into its channels at every edge.
                 </p>
               </div>
             </div>
@@ -315,7 +317,7 @@ export function DesignSystemPage() {
               onCopy={onCopy}
               preview={
                 <div className="relative h-40 border-b border-line-subtle">
-                  <MetalSurface params={params} radius={0} />
+                  <MetalSurface params={params} />
                 </div>
               }
             />
