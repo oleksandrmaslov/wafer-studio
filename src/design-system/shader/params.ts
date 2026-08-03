@@ -1,16 +1,14 @@
 /**
- * Wafer Chromatic Metal - parameter model.
+ * Wafer aberration shader — parameter model.
  *
- * The numeric control set matches the reference material's, in the same order,
- * so tuning transfers by eye. The schema is the single source of truth: the
- * inspector is generated from it, presets are validated against it, and the
- * WebGL runtime reads its uniform names from it.
- *
- * The gradient is deliberately NOT part of the numeric schema. It is a list of
- * colour stops, and it is where the material's colour actually lives.
+ * The schema is the single source of truth: the control panel is generated from
+ * it, presets are validated against it, and the WebGL runtime reads uniform
+ * names from it. Adding a parameter here adds a slider, a preset key, and a
+ * uniform in one edit.
  */
 
-export interface MetalParamSpec {
+export interface AberrationParamSpec {
+  /** Uniform name in the fragment shader. */
   readonly uniform: string;
   readonly label: string;
   /** One line, shown under the control. Say what it does physically. */
@@ -18,386 +16,319 @@ export interface MetalParamSpec {
   readonly min: number;
   readonly max: number;
   readonly step: number;
-  /** Rendered as a percentage in the inspector rather than a raw number. */
-  readonly percent?: boolean;
-  readonly group: "surface" | "reflection" | "gradient" | "finish";
+  /** Controls are grouped in the inspector in this order. */
+  readonly group: "surface" | "light" | "dispersion" | "finish";
 }
 
-export const METAL_PARAMS = {
-  rounding: {
-    uniform: "uRounding",
-    label: "Rounding",
-    hint: "Corner radius of the form, and how softly the dome falls to its edge.",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    percent: true,
-    group: "surface",
-  },
-  depth: {
-    uniform: "uDepth",
-    label: "Depth",
-    hint: "Strength of the bulges and dents. This is what bends the reflection.",
-    min: 0,
-    max: 2,
-    step: 0.01,
-    percent: true,
-    group: "surface",
-  },
-  roughness: {
-    uniform: "uRoughness",
-    label: "Roughness",
-    hint: "Mirror through to matte. Widens the highlight and adds grain.",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    percent: true,
-    group: "surface",
-  },
+export const ABERRATION_PARAMS = {
   scale: {
     uniform: "uScale",
     label: "Scale",
-    hint: "Size of the reflected forms. Higher is larger.",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    percent: true,
-    group: "reflection",
-  },
-  stretch: {
-    uniform: "uStretch",
-    label: "Stretch",
-    hint: "Anisotropy. Draws the reflections out along one axis.",
-    min: 0.25,
-    max: 4,
-    step: 0.01,
-    percent: true,
-    group: "reflection",
-  },
-  angle: {
-    uniform: "uAngle",
-    label: "Angle",
-    hint: "Direction of the stretch and of the light.",
-    min: -180,
-    max: 180,
-    step: 1,
-    group: "reflection",
-  },
-  rgbSplit: {
-    uniform: "uRgbSplit",
-    label: "RGB split",
-    hint: "Offsets red and blue either side of green. Fringes every band edge.",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    percent: true,
-    group: "gradient",
-  },
-  repeats: {
-    uniform: "uRepeats",
-    label: "Repeats",
-    hint: "How many times the colour ramp tiles across the surface.",
-    min: 1,
-    max: 8,
+    hint: "Size of the metal's grain structure.",
+    min: 0.5,
+    max: 12,
     step: 0.1,
-    group: "gradient",
+    group: "surface",
   },
-  offset: {
-    uniform: "uOffset",
-    label: "Offset",
-    hint: "Slides the ramp across the form.",
-    min: -1,
-    max: 1,
+  detail: {
+    uniform: "uDetail",
+    label: "Detail",
+    hint: "How many octaves of structure the surface carries.",
+    min: 1,
+    max: 5,
+    step: 0.05,
+    group: "surface",
+  },
+  warp: {
+    uniform: "uWarp",
+    label: "Warp",
+    hint: "Domain distortion. Higher values pour the metal.",
+    min: 0,
+    max: 1.6,
     step: 0.01,
-    percent: true,
-    group: "gradient",
+    group: "surface",
   },
-  phase: {
-    uniform: "uPhase",
-    label: "Phase",
-    hint: "Slides the ramp within each repeat.",
-    min: -1,
-    max: 1,
+  relief: {
+    uniform: "uRelief",
+    label: "Relief",
+    hint: "How deeply the surface is formed. Low values stay a mirror.",
+    min: 0.01,
+    max: 0.8,
+    step: 0.005,
+    group: "surface",
+  },
+  flow: {
+    uniform: "uFlow",
+    label: "Flow",
+    hint: "Speed the surface drifts at. Zero freezes it.",
+    min: 0,
+    max: 2,
     step: 0.01,
-    percent: true,
-    group: "gradient",
+    group: "surface",
   },
-  evolution: {
-    uniform: "uEvolution",
-    label: "Evolution",
-    hint: "Advances the noise to a different variation. Still at zero.",
+  metalness: {
+    uniform: "uMetalness",
+    label: "Metalness",
+    hint: "Mirror versus matte. Low values read as anodised.",
     min: 0,
     max: 1,
     step: 0.01,
-    percent: true,
+    group: "light",
+  },
+  specular: {
+    uniform: "uSpecular",
+    label: "Specular",
+    hint: "Intensity of the highlight under the light source.",
+    min: 0,
+    max: 2.5,
+    step: 0.01,
+    group: "light",
+  },
+  spread: {
+    uniform: "uSpread",
+    label: "Spread",
+    hint: "How tightly the highlight focuses.",
+    min: 0.4,
+    max: 8,
+    step: 0.05,
+    group: "light",
+  },
+  exposure: {
+    uniform: "uExposure",
+    label: "Exposure",
+    hint: "Overall brightness of the reflected environment.",
+    min: 0,
+    max: 2,
+    step: 0.01,
+    group: "light",
+  },
+  dispersion: {
+    uniform: "uDispersion",
+    label: "Dispersion",
+    hint: "How far the spectrum splits where the surface turns.",
+    min: 0,
+    max: 2.5,
+    step: 0.01,
+    group: "dispersion",
+  },
+  bias: {
+    uniform: "uBias",
+    label: "Edge bias",
+    hint: "Confines colour to steep edges. High values keep fills neutral.",
+    min: 0.2,
+    max: 6,
+    step: 0.05,
+    group: "dispersion",
+  },
+  saturation: {
+    uniform: "uSaturation",
+    label: "Chroma",
+    hint: "Saturation of the split, before it meets the substrate.",
+    min: 0,
+    max: 2,
+    step: 0.01,
+    group: "dispersion",
+  },
+  rotation: {
+    uniform: "uRotation",
+    label: "Rotation",
+    hint: "Rotates the spectrum around the light.",
+    min: 0,
+    max: 1,
+    step: 0.005,
+    group: "dispersion",
+  },
+  contrast: {
+    uniform: "uContrast",
+    label: "Contrast",
+    hint: "Separation between the lit and unlit sides.",
+    min: 0.2,
+    max: 2.5,
+    step: 0.01,
+    group: "finish",
+  },
+  grain: {
+    uniform: "uGrain",
+    label: "Grain",
+    hint: "Sensor noise. A little keeps gradients from banding.",
+    min: 0,
+    max: 0.35,
+    step: 0.005,
+    group: "finish",
+  },
+  vignette: {
+    uniform: "uVignette",
+    label: "Vignette",
+    hint: "Falloff toward the edges of the field.",
+    min: 0,
+    max: 1.5,
+    step: 0.01,
     group: "finish",
   },
   opacity: {
     uniform: "uOpacity",
     label: "Opacity",
-    hint: "Strength of the whole surface.",
+    hint: "Strength of the whole field over the substrate.",
     min: 0,
     max: 1,
     step: 0.01,
-    percent: true,
     group: "finish",
   },
-} as const satisfies Record<string, MetalParamSpec>;
+} as const satisfies Record<string, AberrationParamSpec>;
 
-export type MetalParamKey = keyof typeof METAL_PARAMS;
-export const METAL_PARAM_KEYS = Object.keys(METAL_PARAMS) as MetalParamKey[];
+export type AberrationParamKey = keyof typeof ABERRATION_PARAMS;
+export type AberrationParams = Record<AberrationParamKey, number>;
 
-export const METAL_GROUPS = [
+export const ABERRATION_PARAM_KEYS = Object.keys(
+  ABERRATION_PARAMS
+) as AberrationParamKey[];
+
+export const ABERRATION_GROUPS = [
   { id: "surface", label: "Surface" },
-  { id: "reflection", label: "Reflection" },
-  { id: "gradient", label: "Gradient" },
+  { id: "light", label: "Light" },
+  { id: "dispersion", label: "Dispersion" },
   { id: "finish", label: "Finish" },
 ] as const;
 
-export interface GradientStop {
-  /** Linear-ish sRGB, 0..1 per channel. */
-  readonly color: readonly [number, number, number];
-  /** 0..1 along the ramp. */
-  readonly position: number;
-}
-
-export type MetalParams = Record<MetalParamKey, number> & {
-  readonly gradient: readonly GradientStop[];
-};
-
-/** Max stops the shader carries. Keep in sync with `uGradient[8]`. */
-export const MAX_GRADIENT_STOPS = 8;
-
 /**
- * The spectral ramp: white, into cyan, into deep blue, into magenta, out to
- * warm yellow. This is where the material's colour comes from.
+ * Presets are the finish levels, expressed as shader state. They are not three
+ * different looks — they are one material at three amplitudes, which is why
+ * `scale`, `detail`, and `warp` barely move between them while `dispersion`
+ * and `specular` do.
  */
-const SPECTRAL: readonly GradientStop[] = [
-  // Chrome, not an oil film. The difference is entirely in how the ramp spends
-  // its length: a long white plateau, a THIN rainbow transition, then straight
-  // into near-black and a long climb back. Giving every hue equal area is what
-  // makes a surface look like petrol on water; here colour occupies under a
-  // fifth of the ramp and the rest is value.
-  { color: [1.0, 1.0, 1.0], position: 0.0 },
-  { color: [0.94, 0.96, 0.98], position: 0.28 },
-  { color: [0.42, 0.78, 1.0], position: 0.36 },
-  { color: [0.12, 0.3, 1.0], position: 0.43 },
-  { color: [0.81, 0.21, 0.92], position: 0.49 },
-  { color: [1.0, 0.71, 0.27], position: 0.55 },
-  { color: [0.06, 0.08, 0.1], position: 0.64 },
-  { color: [1.0, 1.0, 1.0], position: 1.0 },
-];
-
-/**
- * Monochrome silver. No hue, so it is the ramp to use when a surface has to
- * carry text or when the user has asked for high contrast.
- */
-const SILVER: readonly GradientStop[] = [
-  // Same value structure with the colour removed, and the dark end lifted to
-  // #8F9AA4 so near-black ink clears AA against the worst point of the fill.
-  { color: [1.0, 1.0, 1.0], position: 0.0 },
-  { color: [0.97, 0.98, 0.99], position: 0.3 },
-  { color: [0.8, 0.84, 0.88], position: 0.46 },
-  { color: [0.56, 0.6, 0.64], position: 0.62 },
-  { color: [0.85, 0.88, 0.91], position: 0.82 },
-  { color: [1.0, 1.0, 1.0], position: 1.0 },
-];
-
-/**
- * Presets are roles, not moods. Each exists because a surface in the product
- * needs the material to behave differently.
- */
-export const METAL_PRESETS = {
-  /** Primary actions and hero fills. */
-  button: {
-    roughness: 0.33,
-    depth: 1.14,
-    rgbSplit: 0.58,
-    scale: 0.58,
-    stretch: 3.25,
-    angle: -118,
-    repeats: 2,
-    offset: 0.26,
-    phase: -0.37,
-    evolution: 0,
-    rounding: 0.88,
-    opacity: 1,
-    gradient: SPECTRAL,
+export const ABERRATION_PRESETS = {
+  precision: {
+    scale: 1.3,
+    detail: 1.8,
+    warp: 0.4,
+    relief: 0.12,
+    flow: 0.14,
+    metalness: 0.74,
+    specular: 0.95,
+    spread: 2.2,
+    exposure: 0.95,
+    dispersion: 0.5,
+    bias: 2.4,
+    saturation: 0.8,
+    rotation: 0,
+    contrast: 1.05,
+    grain: 0.025,
+    vignette: 0.4,
+    opacity: 0.5,
   },
-  /** Selected keys. Tighter, less stretched, slowly evolving. */
-  keycap: {
-    roughness: 0.24,
-    depth: 1.3,
-    rgbSplit: 0.38,
-    scale: 0.7,
-    stretch: 1.9,
-    angle: 108,
-    repeats: 1.8,
-    offset: 0.08,
-    phase: -0.12,
-    evolution: 0.15,
-    rounding: 0.72,
-    opacity: 1,
-    gradient: SPECTRAL,
+  alloy: {
+    scale: 1.5,
+    detail: 2.1,
+    warp: 0.6,
+    relief: 0.18,
+    flow: 0.22,
+    metalness: 0.88,
+    specular: 1.2,
+    spread: 1.9,
+    exposure: 1,
+    dispersion: 1,
+    bias: 2,
+    saturation: 1.1,
+    rotation: 0,
+    contrast: 1.12,
+    grain: 0.035,
+    vignette: 0.45,
+    opacity: 0.8,
   },
-  /** The mark's own material. */
-  logo: {
-    roughness: 0.29,
-    depth: 1.28,
-    rgbSplit: 0.46,
-    scale: 0.8,
-    stretch: 1.5,
-    angle: 116,
-    repeats: 1.6,
-    offset: 0,
-    phase: 0,
-    evolution: 0,
-    rounding: 0.38,
+  prism: {
+    scale: 1.7,
+    detail: 2.4,
+    warp: 0.8,
+    relief: 0.26,
+    flow: 0.32,
+    metalness: 0.95,
+    specular: 1.5,
+    spread: 1.5,
+    exposure: 1.05,
+    dispersion: 1.7,
+    bias: 1.6,
+    saturation: 1.45,
+    rotation: 0,
+    contrast: 1.2,
+    grain: 0.045,
+    vignette: 0.5,
     opacity: 1,
-    gradient: SPECTRAL,
   },
-  /**
-   * Monochrome, low split, high roughness. For high-contrast mode, for
-   * text-bearing fills, and for anyone who has asked for less colour.
-   */
-  silver: {
-    roughness: 0.4,
-    depth: 0.95,
-    rgbSplit: 0.08,
-    scale: 0.68,
-    stretch: 1.35,
-    angle: 120,
-    repeats: 1.6,
-    offset: 0,
-    phase: 0,
-    evolution: 0,
-    rounding: 0.65,
+  /** The mark itself: tight, bright, heavily dispersed, nearly still. */
+  mark: {
+    scale: 1.1,
+    detail: 2.3,
+    warp: 1,
+    relief: 0.36,
+    flow: 0.1,
+    metalness: 1,
+    specular: 1.9,
+    spread: 1.1,
+    exposure: 1.15,
+    dispersion: 2.1,
+    bias: 1.3,
+    saturation: 1.7,
+    rotation: 0.1,
+    contrast: 1.3,
+    grain: 0.05,
+    vignette: 0.15,
     opacity: 1,
-    gradient: SILVER,
   },
-} as const satisfies Record<string, MetalParams>;
+} as const satisfies Record<string, AberrationParams>;
 
-export type MetalPresetId = keyof typeof METAL_PRESETS;
+export type AberrationPresetId = keyof typeof ABERRATION_PRESETS;
 
-export const METAL_PRESET_LIST = [
+export const ABERRATION_PRESET_LIST = [
   {
-    id: "button",
-    label: "Button",
-    description: "Primary actions and hero fills.",
+    id: "precision",
+    label: "Precision",
+    description: "Restrained. Colour only where the surface truly turns.",
   },
-  { id: "keycap", label: "Keycap", description: "Selected keys." },
-  { id: "logo", label: "Logo", description: "The mark's own material." },
   {
-    id: "silver",
-    label: "Silver",
-    description: "Monochrome. High contrast and text-bearing fills.",
+    id: "alloy",
+    label: "Alloy",
+    description: "The reference material. Balanced metal and spectrum.",
+  },
+  {
+    id: "prism",
+    label: "Prism",
+    description: "Full spectral response across a livelier surface.",
+  },
+  {
+    id: "mark",
+    label: "Mark",
+    description: "The logo's own material, for hero surfaces.",
   },
 ] as const satisfies readonly {
-  id: MetalPresetId;
+  id: AberrationPresetId;
   label: string;
   description: string;
 }[];
 
-export function clampParams(params: MetalParams): MetalParams {
-  const next: Record<string, unknown> = { ...params };
-
-  for (const key of METAL_PARAM_KEYS) {
-    const spec: MetalParamSpec = METAL_PARAMS[key];
-    const value = Number(params[key]);
+export function clampParams(params: AberrationParams): AberrationParams {
+  const next = { ...params };
+  for (const key of ABERRATION_PARAM_KEYS) {
+    const spec = ABERRATION_PARAMS[key];
+    const value = Number(next[key]);
     next[key] = Number.isFinite(value)
       ? Math.min(Math.max(value, spec.min), spec.max)
-      : METAL_PRESETS.button[key];
+      : ABERRATION_PRESETS.alloy[key];
   }
-
-  const stops = Array.isArray(params.gradient) ? params.gradient : [];
-  next.gradient =
-    stops.length >= 2
-      ? stops.slice(0, MAX_GRADIENT_STOPS)
-      : METAL_PRESETS.button.gradient;
-
-  return next as MetalParams;
+  return next;
 }
 
-function gradientEquals(
-  a: readonly GradientStop[],
-  b: readonly GradientStop[]
-): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((stop, index) => {
-    const other = b[index];
-    return (
-      Math.abs(stop.position - other.position) < 1e-6 &&
-      stop.color.every((c, i) => Math.abs(c - other.color[i]) < 1e-6)
-    );
-  });
-}
-
-export function paramsEqual(a: MetalParams, b: MetalParams): boolean {
-  return (
-    METAL_PARAM_KEYS.every((key) => Math.abs(a[key] - b[key]) < 1e-6) &&
-    gradientEquals(a.gradient, b.gradient)
+export function paramsEqual(a: AberrationParams, b: AberrationParams): boolean {
+  return ABERRATION_PARAM_KEYS.every(
+    (key) => Math.abs(a[key] - b[key]) < 1e-6
   );
 }
 
-export function matchPreset(params: MetalParams): MetalPresetId | null {
-  for (const preset of METAL_PRESET_LIST) {
-    if (paramsEqual(params, METAL_PRESETS[preset.id])) return preset.id;
+/** Find the preset a parameter set corresponds to, if any. */
+export function matchPreset(
+  params: AberrationParams
+): AberrationPresetId | null {
+  for (const preset of ABERRATION_PRESET_LIST) {
+    if (paramsEqual(params, ABERRATION_PRESETS[preset.id])) return preset.id;
   }
   return null;
-}
-
-/** `#rrggbb` for an `<input type="color">`. */
-export function stopToHex(stop: GradientStop): string {
-  const channel = (value: number) =>
-    Math.round(Math.min(Math.max(value, 0), 1) * 255)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${channel(stop.color[0])}${channel(stop.color[1])}${channel(stop.color[2])}`;
-}
-
-export function hexToColor(hex: string): [number, number, number] {
-  const value = hex.replace("#", "");
-  const read = (start: number) => parseInt(value.slice(start, start + 2), 16) / 255;
-  return [read(0), read(2), read(4)];
-}
-
-/** A CSS gradient of the same stops, for previews and the no-WebGL fallback. */
-export function gradientToCss(
-  stops: readonly GradientStop[],
-  angleDeg = 116
-): string {
-  const parts = [...stops]
-    .sort((a, b) => a.position - b.position)
-    .map((stop) => `${stopToHex(stop)} ${(stop.position * 100).toFixed(1)}%`);
-  return `linear-gradient(${angleDeg}deg, ${parts.join(", ")})`;
-}
-
-/**
- * Adapts a preset to the active theme. High contrast drops the split and the
- * hue entirely, because colour must never be the only signal.
- */
-export function adaptPresetForTheme(
-  params: MetalParams,
-  theme: "dark" | "light" | "high-contrast"
-): MetalParams {
-  switch (theme) {
-    case "high-contrast":
-      return {
-        ...params,
-        rgbSplit: Math.min(params.rgbSplit, 0.08),
-        roughness: Math.max(params.roughness, 0.42),
-        phase: 0,
-        evolution: 0,
-        gradient: SILVER,
-      };
-    case "light":
-      return {
-        ...params,
-        roughness: Math.max(params.roughness, 0.36),
-        depth: params.depth * 0.9,
-        rgbSplit: params.rgbSplit * 0.72,
-      };
-    default:
-      return params;
-  }
 }

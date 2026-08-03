@@ -962,7 +962,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
             />
           ) : (
             <div className="grid max-w-sm place-items-center gap-3 rounded-2xl border border-line bg-base-200/75 p-8 text-center shadow-sm">
-              <div className="grid size-11 place-items-center rounded-xl bg-selected text-ink">
+              <div className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
                 <Cable aria-hidden="true" className="size-5" />
               </div>
               <div>

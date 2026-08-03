@@ -1,5 +1,5 @@
 @import "./design-system/tokens.css";
-@import "./design-system/metal.css";
+@import "./design-system/dispersion.css";
 
 @tailwind base;
 @tailwind components;
@@ -44,7 +44,7 @@
   }
 
   ::selection {
-    background: rgb(var(--ink-primary) / 0.2);
+    background: rgb(var(--wafer-primary) / 0.28);
     color: rgb(var(--ink-primary));
   }
 }
@@ -58,6 +58,8 @@
   /* ---- Surfaces ---------------------------------------------------------- */
   .wafer-finish-panel {
     background-color: rgb(var(--surface-panel));
+    background-image: var(--wafer-specular-field);
+    background-attachment: fixed;
     box-shadow: var(--elevation-panel);
   }
 
@@ -92,9 +94,8 @@
   }
 
   .wafer-segmented__item[aria-pressed="true"] {
-    background-color: #cfd6dc;
-    background-image: var(--metal-ramp-bright);
-    color: rgb(var(--metal-ink));
+    background: rgb(var(--surface-raised));
+    color: rgb(var(--accent-foreground));
   }
 
   .wafer-segmented__item:focus-visible {
@@ -161,8 +162,8 @@
   }
 
   .wafer-action-row[data-selected="true"] {
-    background: rgb(var(--surface-selected) / 0.9);
-    color: rgb(var(--ink-primary));
+    background: rgb(var(--surface-selected) / 0.72);
+    color: rgb(var(--accent-foreground));
   }
 
   .wafer-action-row:focus-visible {
@@ -186,9 +187,8 @@
   }
 
   .wafer-action-row[data-selected="true"] .wafer-action-row__icon {
-    background-color: #cfd6dc;
-    background-image: var(--metal-ramp-bright);
-    color: rgb(var(--metal-ink));
+    background: rgb(var(--wafer-primary) / 0.11);
+    color: rgb(var(--accent-foreground));
   }
 
   /* ---- Category strip ------------------------------------------------------ */
@@ -226,9 +226,8 @@
   }
 
   .wafer-category-chip[aria-pressed="true"] {
-    background-color: #cfd6dc;
-    background-image: var(--metal-ramp-bright);
-    color: rgb(var(--metal-ink));
+    background: rgb(var(--surface-selected));
+    color: rgb(var(--accent-foreground));
   }
 
   .wafer-category-chip:focus-visible {
@@ -277,17 +276,14 @@
 
   .wafer-button[data-intent="primary"] {
     border-color: transparent;
-    background-color: #cfd6dc;
-    background-image: var(--metal-ramp-bright);
-    color: rgb(var(--metal-ink));
+    background: rgb(var(--wafer-primary));
+    color: rgb(var(--primary-content));
   }
 
   @media (hover: hover) and (pointer: fine) {
     .wafer-button[data-intent="primary"]:hover:not(:disabled) {
-      /* Shifting the ramp is the hover, so the surface moves like metal
-         instead of stepping to a second colour. */
-      --metal-repeat: 40%;
-      color: rgb(var(--metal-ink));
+      background: rgb(var(--wafer-primary-hover));
+      color: rgb(var(--primary-content));
     }
   }
 
@@ -398,7 +394,7 @@
     .wafer-key[data-interactive="true"]:hover {
       z-index: 1;
       transform: translateY(-1px);
-      border-color: rgb(var(--line-strong));
+      border-color: rgb(var(--wafer-primary) / 0.72);
       box-shadow: var(--key-shadow-hover);
     }
   }
@@ -409,28 +405,10 @@
   }
 
   .wafer-key[data-selected="true"] {
-    position: relative;
-    border-color: transparent;
-    box-shadow: var(--key-shadow);
-  }
-
-  /* Selection is a ring of the material, cut to the key's own radius. */
-  .wafer-key[data-selected="true"]::after {
-    position: absolute;
-    inset: -2px;
-    padding: 2px;
-    border-radius: calc(var(--radius-key) + 1px);
-    background-image: var(--metal-ramp);
-    content: "";
-    pointer-events: none;
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask-composite: exclude;
+    border-color: rgb(var(--wafer-primary));
+    box-shadow:
+      0 0 0 2px rgb(var(--wafer-primary)),
+      var(--key-shadow);
   }
 
   .wafer-key:focus-visible {

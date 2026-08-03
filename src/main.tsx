@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import { DispersionField } from "./design-system/DispersionField.tsx";
-import { MetalTextures } from "./design-system/shader/MetalTextures.tsx";
 import "./index.css";
 
 // The light is mounted at the root so the whole product shares one source. Any
@@ -10,7 +9,6 @@ import "./index.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <DispersionField>
-      <MetalTextures />
       <App />
     </DispersionField>
   </React.StrictMode>
