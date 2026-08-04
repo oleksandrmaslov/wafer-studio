@@ -2,10 +2,10 @@
 
 ## The thesis
 
-The Wafer mark is a chrome glyph on a neutral tile. Its surface carries no
-colour of its own; colour appears only where the form turns away from the light
-and splits it. That is the whole identity, and this design system treats it as a
-law the interface obeys rather than as a texture applied to the interface.
+Wafer's surfaces carry no colour of their own. Colour appears only where an edge
+turns away from the light and splits it. That is the whole identity, and this
+design system treats it as a law the interface obeys rather than as a texture
+applied to the interface.
 
 Three statements define the system:
 
@@ -14,8 +14,8 @@ Three statements define the system:
 3. **Steepness decides whether any colour appears at all.**
 
 The third is the important one. It is what keeps flat regions achromatic no
-matter how far dispersion is pushed, and it is why the result reads as metal
-rather than as an oil slick.
+matter how far dispersion is pushed, and it is why the result reads as split
+light rather than as an oil slick.
 
 ### Why this is not skeuomorphism
 
@@ -24,7 +24,7 @@ button carries its own little gradient pretending to be a lit object. Nothing
 here pretends to be an object. The system models one physical law and lets
 geometry decide what each edge shows.
 
-The whole application shares **one** light source. Every metallic edge paints
+The whole application shares **one** light source. Every dispersive edge paints
 its gradient in viewport space, so each element is a window onto the same field
 and samples it at its own position. An element near the light shows a white
 specular edge; one further away falls into the spectrum. Move the light and the
@@ -42,20 +42,20 @@ layered onto it. What changes is how loudly.
 | Level | Gain | Character |
 | --- | --- | --- |
 | Precision | 0.5 | Colour only where the surface truly turns. The quiet default. |
-| Alloy | 1.0 | The reference material. Balanced metal and spectrum. |
+| Alloy | 1.0 | The reference amplitude. Balanced light and spectrum. |
 | Prism | 1.55 | Full spectral response across every live edge. |
 
 The level is stored on `<html data-wafer-finish>` and is independent of the
 operating system light and dark preference. It scales `--dispersion-gain` and
-`--specular-gain`, and the shader presets of the same name move in step.
+`--specular-gain`.
 
 ## Foundations
 
 ### Substrate
 
-Achromatic. Value carries hierarchy and hue never touches a fill, because metal
-only reads as metal against neutral. A warm cast would tint the specular
-highlight and the material would collapse.
+Achromatic. Value carries hierarchy and hue never touches a fill, because split
+light only reads as split light against neutral. A warm cast would tint the
+specular highlight and the system would collapse.
 
 `--surface-canvas`, `--surface-panel`, `--surface-raised`, `--surface-hover`,
 `--surface-selected`, `--surface-overlay`.
@@ -68,19 +68,42 @@ measured contrast against panel, and every one clears WCAG AA in both schemes.
 
 ### Spectrum
 
-`--spectral-azure`, `--spectral-violet`, `--spectral-coral`, `--spectral-amber`,
+`--spectral-cyan`, `--spectral-azure`, `--spectral-violet`, `--spectral-magenta`,
 in the order light splits.
 
-`--wafer-primary` is not a separate brand colour. It is the coral sample of this
-same ramp, which is why the accent and the aberration never look like two
-systems sharing a page.
+**Requirement — the ramp is the cool half of the spread only.** No warm stop may
+enter it. A warm stop in a one-pixel edge stops reading as dispersion and starts
+reading as a glow, which drags every dispersive edge on the page toward looking
+like a highlight rather than like split light. The sweep runs out to magenta and
+back rather than passing through orange.
 
-### Metal
+### Accent
 
-`--metal-specular` and `--metal-shadow` are the two ends of the material's value
-range. The shader interpolates between them rather than between the substrate
-and white, so on light paper the surface still has somewhere dark to go instead
-of washing out.
+**Requirement — the accent is achromatic. There is no brand hue.**
+
+`--wafer-primary` is the far end of the value range, not a colour: near-black on
+light, polished chrome on dark, inverting with the scheme. `--primary-content`,
+`--accent-foreground`, `--wafer-primary-hover`, `--wafer-deep` and
+`--surface-selected` are all neutral with it.
+
+This exists so the spectrum is the *only* source of hue in the interface. An
+accent colour competing with the dispersion ramp produces two colour systems
+sharing a page, and the ramp always loses — it lives at one pixel, and a filled
+accent does not. Removing the hue also removed the system's tightest contrast
+margins: every accent pair now measures 10.9:1 or better in both schemes, where
+the previous coral pairs sat at 4.8:1 and 5.8:1.
+
+What marks an element as primary is therefore **position on the dispersion
+scale, not colour** — `.wafer-accent` sits permanently at `--dispersion-committed`
+so its edge carries full spectrum at rest, while every other control's edge stays
+dark until you touch it.
+
+### Light
+
+`--light-specular` and `--light-shadow` are the two ends of the value range.
+Every lit edge and every sheen is built from these plus the spectrum; there are
+no per-component gradients. On light paper the dark end has to be genuinely dark
+or the surface has nowhere to go but white.
 
 ### Dispersion scale
 
@@ -89,7 +112,7 @@ a step according to how live it is.
 
 | Step | Value | Use |
 | --- | --- | --- |
-| `--dispersion-inert` | 0 | Resting chrome |
+| `--dispersion-inert` | 0 | At rest |
 | `--dispersion-latent` | 0.34 | Hover |
 | `--dispersion-engaged` | 0.66 | Focus, open, active |
 | `--dispersion-committed` | 1 | Selected, bound, primary |
@@ -110,7 +133,7 @@ the only control in the system that is a tag rather than a button.
 
 ## Implementation
 
-The law is implemented twice, at two costs, and the two must always agree.
+The law is implemented once.
 
 ### 1. The CSS edge layer (`src/design-system/dispersion.css`)
 
@@ -119,15 +142,17 @@ The law is implemented twice, at two costs, and the two must always agree.
 out of that field with a mask, at an opacity set by `--dispersion`. This is
 cheap enough to put on every control on the page.
 
-### 2. The shader (`src/design-system/shader/`)
+### 2. There is no second implementation
 
-A WebGL fragment shader renders the material itself: a domain-warped height
-field, a normal derived from its true gradient, a reflected studio environment,
-and a spectrum admitted only where the slope is steep. Used for hero surfaces
-and the mark, not for ordinary chrome.
+There used to be one — a WebGL band shader, and later a metallic aberration
+shader, for hero surfaces and the mark. Both are **deprecated** and now live in
+`deprecated/`, outside the build.
 
-Both read the same light and the same spectrum tokens, so a small control and
-the field behind it cast the same colour.
+**Requirement — the CSS edge layer is the only implementation.** A second
+renderer for the same law has to be kept in agreement with the first by hand,
+and it brings failure modes the CSS layer does not have: context loss, driver
+compile failures, blank canvases, and a fallback path that must be maintained
+and is almost never seen. One gradient, one law, no canvas.
 
 ### The light (`src/design-system/DispersionField.tsx`)
 
@@ -137,30 +162,15 @@ parks itself once the light settles. React re-renders zero times while the light
 moves. `pulse()` throws the light to a point so that it can follow meaning, such
 as a committed binding, and not only the cursor.
 
-## The shader inspector
-
-Parameters are declared once in `shader/params.ts`. The control panel is
-generated from that schema, presets are validated against it, and the WebGL
-runtime reads its uniform names from it, so the panel can never drift out of
-sync with the shader. Presets are the entry point and the sliders are the escape
-hatch.
-
-Groups: Surface (scale, detail, warp, relief, flow), Light (metalness, specular,
-spread, exposure), Dispersion (dispersion, edge bias, chroma, rotation), Finish
-(contrast, grain, vignette, opacity).
-
-Tuning persists under a versioned storage key and every value read back is
-clamped to the schema, so a stale or corrupt entry can never brick the surface.
-
 ## Non-negotiables
 
-These hold regardless of finish level or shader parameters.
+These hold regardless of finish level.
 
 1. **Dispersion never carries state alone.** Every state it accompanies also has
    a non-spectral signal: tint, weight, border, or icon.
 2. **Focus is never dispersive.** A 3px `--focus-ring` outline, always.
-3. **Text contrast never depends on a shader value.** Copy over a shader sits on
-   a scrim, never on a blend mode.
+3. **Text contrast never depends on a material value.** Copy over a lit surface
+   sits on a scrim, never on a blend mode.
 4. **Reduced motion removes movement, not feedback.** The light parks at rest
    and transforms are dropped; opacity and colour transitions stay, because they
    are what tell you the interface responded.
@@ -177,13 +187,12 @@ These hold regardless of finish level or shader parameters.
   ancestor with a `transform`, `filter`, or `backdrop-filter`, that resolves
   against the ancestor's box instead, and the edge degrades to a local gradient.
   It still looks correct, it just stops being globally coherent, so avoid
-  transformed ancestors around dispersive chrome.
+  transformed ancestors around dispersive edges.
 - Writing `--light-x` on `:root` invalidates style for everything that reads it.
   This is inherent to one shared light. Writes are deduplicated at three decimal
   places and the loop parks when idle.
-- If WebGL is unavailable or the program fails to link, the canvas hides itself
-  and the CSS specular field underneath is what remains. The interface degrades
-  to the quiet finish, not to nothing.
+- `mask-composite` is what cuts the one pixel ring. Without it the ring paints
+  as a filled rectangle, so the property is required rather than progressive.
 
 ## Acceptance checks
 
@@ -194,5 +203,5 @@ These hold regardless of finish level or shader parameters.
 - Text meets WCAG AA in both colour schemes, including placeholders, helper
   text, and every button label against its own background.
 - No state change alters control dimensions or remounts the editor.
-- With the shader disabled entirely, every state in the product is still
+- With dispersion disabled entirely, every state in the product is still
   readable and distinguishable.

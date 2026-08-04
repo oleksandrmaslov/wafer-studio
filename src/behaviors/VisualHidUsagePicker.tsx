@@ -87,13 +87,17 @@ export function VisualHidUsagePicker({
             </div>
           </details>
 
+          {/* A disclosure collapse, not a commit. It used to wear the accent
+              fill, which made it read as the button that applies the choice —
+              but the choice was already applied when it was clicked. Quiet
+              styling, so nothing in this panel looks like it is holding work
+              back. */}
           <button
             type="button"
-            disabled={value === undefined}
             onClick={() => setExpanded(false)}
-            className="min-h-11 rounded-xl wafer-accent px-4 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
+            className="min-h-10 justify-self-start rounded-control px-2 text-sm font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
           >
-            Done
+            Close list
           </button>
         </div>
       )}

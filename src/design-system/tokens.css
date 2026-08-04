@@ -24,7 +24,7 @@
     --surface-panel: 246 247 249; /* #F6F7F9 */
     --surface-raised: 255 255 255; /* #FFFFFF */
     --surface-hover: 230 233 236; /* #E6E9EC */
-    --surface-selected: 255 237 231; /* #FFEDE7 */
+    --surface-selected: 226 230 234; /* #E2E6EA */
     --surface-overlay: 252 253 254; /* #FCFDFE */
 
     --ink-primary: 20 22 24; /* #141618 */
@@ -49,14 +49,16 @@
     --spectral-violet: 149 104 240; /* #9568F0 */
     --spectral-magenta: 226 82 196; /* #E252C4 */
 
-    --wafer-primary: 255 106 61; /* #FF6A3D */
-    /* Accent hover. Deliberately not `--wafer-deep`: darkening the fill drops
-       dark-ink-on-accent below AA. This stays light enough to carry it. */
-    --wafer-primary-hover: 232 90 46; /* #E85A2E, 4.8:1 with primary-content */
-    --wafer-deep: 158 50 31; /* #9E321F */
-    --accent-foreground: 143 46 23; /* #8F2E17, 7.9:1 on panel */
-    /* Dark ink on coral, not white. White on #FF6A3D is 2.9:1 and fails AA. */
-    --primary-content: 38 12 4; /* #260C04, 5.8:1 on the accent */
+    /* ---- Accent (chrome) --------------------------------------------------
+       Achromatic, like every other fill. The accent is the far end of the
+       value range rather than a hue, so "primary" is a position on the same
+       axis as every other surface and the spectrum is left as the only source
+       of colour in the interface. See the accent law in DESIGN.md. */
+    --wafer-primary: 32 35 38; /* #202326 */
+    --wafer-primary-hover: 54 58 63; /* #363A3F, 10.9:1 with primary-content */
+    --wafer-deep: 12 13 14; /* #0C0D0E, for pressed shadows */
+    --accent-foreground: 20 22 24; /* #141618, 16.9:1 on panel */
+    --primary-content: 248 250 252; /* #F8FAFC, 15.1:1 on the accent */
 
     /* ---- Light ------------------------------------------------------------
        The two ends of the specular range. Every lit edge and every sheen is
@@ -110,7 +112,7 @@
       --surface-panel: 22 23 25; /* #161719 */
       --surface-raised: 29 31 33; /* #1D1F21 */
       --surface-hover: 38 40 43; /* #26282B */
-      --surface-selected: 47 38 34; /* #2F2622 */
+      --surface-selected: 44 47 51; /* #2C2F33 */
       --surface-overlay: 26 28 30; /* #1A1C1E */
 
       --ink-primary: 240 242 244; /* #F0F2F4 */
@@ -127,13 +129,14 @@
       --spectral-violet: 173 128 255; /* #AD80FF */
       --spectral-magenta: 255 128 224; /* #FF80E0 */
 
-      --wafer-primary: 255 122 92; /* #FF7A5C */
-      /* On dark, the accent brightens on hover rather than deepening, which
-         both keeps contrast and matches the system's logic: it catches light. */
-      --wafer-primary-hover: 255 150 124; /* #FF967C */
-      --wafer-deep: 201 78 44; /* #C94E2C */
-      --accent-foreground: 255 158 127; /* #FF9E7F, 8.4:1 on panel */
-      --primary-content: 20 16 14;
+      /* The accent inverts with the scheme: on dark it is polished chrome, on
+         light it is the ink end. Both are the far end of the same value range,
+         so the accent never becomes a hue in either scheme. */
+      --wafer-primary: 232 236 240; /* #E8ECF0 */
+      --wafer-primary-hover: 255 255 255; /* 19.5:1 with primary-content */
+      --wafer-deep: 150 158 166; /* #969EA6 */
+      --accent-foreground: 240 242 244; /* #F0F2F4, 16.0:1 on panel */
+      --primary-content: 12 13 14; /* #0C0D0E, 16.4:1 on the accent */
 
       --light-specular: 246 250 252;
       --light-shadow: 6 8 10;

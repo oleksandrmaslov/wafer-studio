@@ -184,7 +184,7 @@ export const LayerPicker = ({
   return (
     <div className="flex min-w-0 flex-col">
       <div className="mb-1.5 grid grid-cols-[1fr_auto_auto] items-center gap-0.5">
-        <Label className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted">
+        <Label className="px-1 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
           Layers
         </Label>
         {onRemoveClicked && (
@@ -192,7 +192,7 @@ export const LayerPicker = ({
             type="button"
             aria-label="Remove selected layer"
             title="Remove selected layer"
-            className="grid size-10 place-items-center rounded-[var(--radius-control)] text-muted transition-colors enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
+            className="grid size-9 place-items-center rounded-control text-tertiary outline-none transition-colors enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-focus"
             disabled={!canRemove || isStructureDisabled}
             onClick={onRemoveClicked}
           >
@@ -211,7 +211,7 @@ export const LayerPicker = ({
                   : "No reserved layers available"
             }
             disabled={!canAdd || isStructureDisabled}
-            className="grid size-10 place-items-center rounded-[var(--radius-control)] text-muted transition-colors enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
+            className="grid size-9 place-items-center rounded-control text-tertiary outline-none transition-colors enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-focus"
             onClick={onAddClicked}
           >
             <Plus className="size-4" />
@@ -262,7 +262,7 @@ export const LayerPicker = ({
               type="button"
               aria-label={`Rename ${layer_item.name}`}
               disabled={isStructureDisabled}
-              className="grid size-10 place-items-center rounded-[var(--radius-control)] text-tertiary opacity-0 transition-[color,background-color,opacity] hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100"
+              className="grid size-8 place-items-center rounded-control text-tertiary opacity-0 transition-[color,background-color,opacity] hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100"
               onClick={(event) => {
                 event.stopPropagation();
                 setEditLabelData({

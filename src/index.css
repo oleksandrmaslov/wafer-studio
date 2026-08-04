@@ -191,50 +191,6 @@
     color: rgb(var(--accent-foreground));
   }
 
-  /* ---- Category strip ------------------------------------------------------ */
-  .wafer-category-strip {
-    display: flex;
-    gap: 0.25rem;
-    overflow-x: auto;
-    padding-bottom: 0.125rem;
-    scrollbar-width: none;
-  }
-
-  .wafer-category-strip::-webkit-scrollbar {
-    display: none;
-  }
-
-  .wafer-category-chip {
-    min-height: 2rem;
-    flex: 0 0 auto;
-    border-radius: 999px;
-    padding: 0 0.625rem;
-    color: rgb(var(--ink-secondary));
-    font-size: 0.6875rem;
-    font-weight: 650;
-    outline: none;
-    transition:
-      color var(--motion-fast) var(--motion-ease),
-      background-color var(--motion-fast) var(--motion-ease);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .wafer-category-chip:hover:not(:disabled) {
-      background: rgb(var(--surface-hover));
-      color: rgb(var(--ink-primary));
-    }
-  }
-
-  .wafer-category-chip[aria-pressed="true"] {
-    background: rgb(var(--surface-selected));
-    color: rgb(var(--accent-foreground));
-  }
-
-  .wafer-category-chip:focus-visible {
-    outline: 3px solid rgb(var(--focus-ring));
-    outline-offset: 1px;
-  }
-
   /* ---- Button --------------------------------------------------------------
      One quiet control. Primary intent is carried by `data-intent="primary"`,
      not by a second component. */

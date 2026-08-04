@@ -46,14 +46,17 @@ export const PhysicalLayoutPicker = ({
   return (
     <Select
       onSelectionChange={selectionChanged}
-      className="flex min-w-0 flex-col gap-2"
+      className="flex min-w-0 flex-col gap-1"
       selectedKey={layouts[selectedPhysicalLayoutIndex].name}
       isDisabled={isDisabled}
     >
-      <Label className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-base-content/55">
-        Physical layout
+      <Label className="px-1 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
+        Layout
       </Label>
-      <Button className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-line bg-raised px-3 text-left text-sm outline-none transition hover:border-base-content/30 rac-disabled:cursor-not-allowed rac-disabled:opacity-45 rac-focus-visible:ring-2 rac-focus-visible:ring-focus">
+      {/* Borderless. A rail of outlined boxes reads as a form to fill in; these
+          are a standing choice you change rarely, so they sit on the substrate
+          and only draw a surface when you reach for them. */}
+      <Button className="flex min-h-10 min-w-0 items-center gap-2 rounded-control px-1 text-left text-sm outline-none transition-colors hover:bg-hover rac-disabled:cursor-not-allowed rac-disabled:opacity-45 rac-focus-visible:ring-2 rac-focus-visible:ring-focus">
         <SelectValue<PhysicalLayoutItem>>
           {(v) => {
             return (

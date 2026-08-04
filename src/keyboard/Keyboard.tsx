@@ -1,5 +1,6 @@
 import React, {
   SetStateAction,
+  type CSSProperties,
   useCallback,
   useContext,
   useEffect,
@@ -30,6 +31,17 @@ import { ConnectionContext } from "../rpc/ConnectionContext";
 import { UndoRedoContext } from "../undoRedo";
 import { BehaviorBindingPicker } from "../behaviors/BehaviorBindingPicker";
 import {
+  isCanonicalKeyPress,
+  isMultiBehavior,
+} from "../behaviors/behaviorKinds";
+import {
+  isModifierCode,
+  readingOrder,
+  stepPosition,
+  usageForCode,
+} from "./typeThrough";
+
+import {
   validateBindingParameters,
   validateValue,
 } from "../behaviors/parameters";
@@ -39,7 +51,7 @@ import { LockStateContext } from "../rpc/LockStateContext";
 import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { deserializeLayoutZoom, LayoutZoom } from "./layoutZoom";
 import { useLocalStorageState } from "../misc/useLocalStorageState";
-import { Cable, Maximize2, MousePointer2, ShieldCheck } from "lucide-react";
+import { Cable, Keyboard as Keyboard2, Maximize2, X } from "lucide-react";
 import {
   bindingEquals,
   countDraftBindings,
@@ -594,11 +606,15 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
   );
 
   const doUpdateBinding = useCallback(
-    (binding: BehaviorBinding) => {
+    // `atPosition` is for type-through, which advances the cursor in the same
+    // tick it binds — by the time this runs, the selection is already the
+    // *next* key, so the caller has to name the one it meant.
+    (binding: BehaviorBinding, atPosition?: number) => {
+      const keyPosition = atPosition ?? selectedKeyPosition;
       if (
         !deviceKeymap ||
         !keymap ||
-        selectedKeyPosition === undefined ||
+        keyPosition === undefined ||
         isApplyingDraft
       ) {
         console.error(
@@ -609,7 +625,6 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
       const layer = selectedLayerIndex;
       const layerId = keymap.layers[layer].id;
-      const keyPosition = selectedKeyPosition;
       const oldBinding = keymap.layers[layer].bindings[keyPosition];
       void undoRedo?.(async () => {
         setDraftBindings((current) =>
@@ -659,6 +674,152 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     if (!keymap || !selectedBinding) return undefined;
     return describeBinding(selectedBinding, behaviors, keymap.layers);
   }, [behaviors, keymap, selectedBinding]);
+
+  const shelfOpen = selectedKeyPosition !== undefined && !!selectedBinding;
+
+  // ---- Bulk apply ---------------------------------------------------------
+  //
+  // Setting home-row mods is eight keys that each have to become a mod-tap
+  // *keeping the letter already on them* — A stays A on tap and becomes Ctrl on
+  // hold. Done one key at a time through the rail that is eight trips of four
+  // clicks, and the tap parameter has to be retyped from memory every time.
+  //
+  // So bulk apply wraps rather than replaces: paint a hold-tap across a row and
+  // each key keeps its own usage as the tap. That single rule is the difference
+  // between "apply the same binding everywhere", which is rarely what anyone
+  // wants for a hold-tap, and home-row mods in eight clicks.
+  const [paint, setPaint] = useState<{
+    binding: BehaviorBinding;
+    keepTap: boolean;
+    label: string;
+  } | null>(null);
+
+  const paintIsHoldTap = useMemo(() => {
+    if (!paint) return false;
+    const behavior = behaviors[paint.binding.behaviorId];
+    return behavior ? isMultiBehavior(behavior) : false;
+  }, [behaviors, paint]);
+
+  const onKeyPositionClicked = useCallback(
+    (position: number) => {
+      if (!paint || !keymap) {
+        setSelectedKeyPosition(position);
+        return;
+      }
+
+      const existing = keymap.layers[selectedLayerIndex]?.bindings[position];
+      const existingBehavior = existing
+        ? behaviors[existing.behaviorId]
+        : undefined;
+      const keepsTap =
+        paint.keepTap &&
+        existingBehavior !== undefined &&
+        isCanonicalKeyPress(existingBehavior);
+
+      doUpdateBinding(
+        keepsTap
+          ? { ...paint.binding, param2: existing.param1 }
+          : paint.binding,
+        position,
+      );
+    },
+    [behaviors, doUpdateBinding, keymap, paint, selectedLayerIndex],
+  );
+
+  // ---- Type-through -------------------------------------------------------
+  const [isTyping, setIsTyping] = useState(false);
+
+  const keyPressBehaviorId = useMemo(() => {
+    const match = Object.values(behaviors).find(isCanonicalKeyPress);
+    return match?.id;
+  }, [behaviors]);
+
+  const order = useMemo(() => {
+    const layout = layouts?.[selectedPhysicalLayoutIndex];
+    return layout ? readingOrder(layout) : [];
+  }, [layouts, selectedPhysicalLayoutIndex]);
+
+  const canTypeThrough = keyPressBehaviorId !== undefined && order.length > 0;
+
+  useEffect(() => {
+    if (!isTyping || keyPressBehaviorId === undefined) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      // A chord is a command; a bare press is a binding. Checking the code
+      // rather than only the modifier flags matters because pressing Control
+      // on its own already reports ctrlKey — and that press has to stay
+      // bindable, or the mode cannot bind modifiers at all.
+      const chord =
+        (event.ctrlKey || event.metaKey || event.altKey) &&
+        !isModifierCode(event.code);
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsTyping(false);
+        return;
+      }
+
+      if (chord) {
+        if (event.code === "ArrowRight" || event.code === "Tab") {
+          event.preventDefault();
+          setSelectedKeyPosition((current) => stepPosition(order, current, 1));
+        } else if (event.code === "ArrowLeft") {
+          event.preventDefault();
+          setSelectedKeyPosition((current) => stepPosition(order, current, -1));
+        }
+        return;
+      }
+
+      const usage = usageForCode(event.code);
+      if (usage === undefined) return;
+
+      event.preventDefault();
+      const target = selectedKeyPosition ?? order[0];
+      if (target === undefined) return;
+
+      doUpdateBinding(
+        { behaviorId: keyPressBehaviorId, param1: usage >>> 0, param2: 0 },
+        target,
+      );
+      setSelectedKeyPosition(stepPosition(order, target, 1));
+    };
+
+    // Capture, so the binding is taken before any focused control in the page
+    // can consume the key as ordinary text input.
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [
+    isTyping,
+    keyPressBehaviorId,
+    order,
+    selectedKeyPosition,
+    doUpdateBinding,
+  ]);
+
+  // Leaving the mode on a lost connection or a layout swap avoids binding keys
+  // on a board that is no longer the one on screen.
+  useEffect(() => {
+    if (!canTypeThrough) setIsTyping(false);
+  }, [canTypeThrough]);
+
+  const typedCount = order.length
+    ? order.indexOf(selectedKeyPosition ?? order[0]) + 1
+    : 0;
+
+  // The flow decides the layout. Nothing is on screen that the current step
+  // does not need: no rail while nothing is selected, and no rails at all
+  // while typing through.
+  // The rail stays up while painting. Dropping the grid to two columns while
+  // the rail was still rendered left it auto-placed into a phantom cell, on
+  // top of the canvas — which is what "repeat on keys" looked like breaking.
+  // Keeping it is also the better behaviour: you can see what you are painting
+  // and retarget without leaving the mode.
+  const columns = isTyping
+    ? "xl:grid-cols-1"
+    : shelfOpen
+      ? "xl:grid-cols-[13rem_minmax(0,1fr)_21rem]"
+      : "xl:grid-cols-[13rem_minmax(0,1fr)]";
 
   const moveLayer = useCallback(
     (start: number, end: number) => {
@@ -876,79 +1037,127 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
   }, [keymap, selectedLayerIndex]);
 
   return (
-    <div className="grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(32rem,1fr)_auto] overflow-auto bg-base-300 xl:grid-cols-[minmax(0,1fr)_24rem] xl:grid-rows-1 xl:overflow-hidden">
-      <main className="grid min-h-[32rem] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-base-300 xl:min-h-0">
-        <div className="wafer-finish-panel grid gap-3 border-b border-line-subtle px-4 py-2.5 lg:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)_auto] lg:items-end">
-          {layouts && (
-            <PhysicalLayoutPicker
-              layouts={layouts}
-              selectedPhysicalLayoutIndex={selectedPhysicalLayoutIndex}
-              isDisabled={countDraftBindings(draftBindings) > 0}
-              onPhysicalLayoutClicked={doSelectPhysicalLayout}
-            />
-          )}
+    // One continuous plane. The cluster row sits directly on the substrate
+    // rather than inside a panel band, so the only horizontal division above
+    // the canvas is the app header.
+    //
+    // `main` is the grid itself rather than a `display: contents` wrapper —
+    // that value has a history of dropping elements out of the accessibility
+    // tree, and this is a landmark.
+    // Three panes. Setup lives on the left, the board owns the middle, and what
+    // a key can become lives on the right.
+    //
+    // The board is wide and short, so its binding constraint is width — but the
+    // thing that actually broke the previous layout was *height*: a top band
+    // plus a bottom sheet cropped the board between them. Rails cost width
+    // once and give the canvas its full height back, which is the trade that
+    // suits this shape.
+    //
+    // `main` is the grid itself rather than a `display: contents` wrapper —
+    // that value has a history of dropping elements out of the accessibility
+    // tree, and this is a landmark.
+    <main
+      className={`grid min-h-0 min-w-0 grid-rows-[minmax(24rem,1fr)_auto] overflow-auto bg-base-300 xl:grid-rows-1 xl:overflow-hidden ${columns}`}
+    >
+      <aside
+        aria-label="Keyboard setup"
+        hidden={isTyping}
+        className="order-1 flex min-h-0 flex-col gap-4 overflow-y-auto border-line-subtle p-3 xl:order-none xl:col-start-1 xl:row-start-1 xl:border-r"
+      >
+        {layouts && (
+          <PhysicalLayoutPicker
+            layouts={layouts}
+            selectedPhysicalLayoutIndex={selectedPhysicalLayoutIndex}
+            isDisabled={countDraftBindings(draftBindings) > 0}
+            onPhysicalLayoutClicked={doSelectPhysicalLayout}
+          />
+        )}
 
-          {keymap && (
-            <LayerPicker
-              orientation="horizontal"
-              layers={keymap.layers}
-              selectedLayerIndex={selectedLayerIndex}
-              onLayerClicked={setSelectedLayerIndex}
-              onLayerMoved={moveLayer}
-              canAdd={(keymap.availableLayers || 0) > 0}
-              canRemove={(keymap.layers?.length || 0) > 1}
-              isStructureDisabled={countDraftBindings(draftBindings) > 0}
-              onAddClicked={addLayer}
-              onRemoveClicked={removeLayer}
-              onLayerNameChanged={changeLayerName}
-            />
-          )}
+        {/* Vertical, so a layer named "Navigation" reads as "Navigation"
+            rather than as "Navi…". Horizontal chips truncated every name past
+            about six characters, which made the picker useless for exactly the
+            layers people bother to name. */}
+        {keymap && (
+          <LayerPicker
+            layers={keymap.layers}
+            selectedLayerIndex={selectedLayerIndex}
+            onLayerClicked={setSelectedLayerIndex}
+            onLayerMoved={moveLayer}
+            canAdd={(keymap.availableLayers || 0) > 0}
+            canRemove={(keymap.layers?.length || 0) > 1}
+            isStructureDisabled={countDraftBindings(draftBindings) > 0}
+            onAddClicked={addLayer}
+            onRemoveClicked={removeLayer}
+            onLayerNameChanged={changeLayerName}
+          />
+        )}
 
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              aria-label="Fit keyboard to viewport"
-              title="Fit keyboard to viewport"
-              onClick={() => setKeymapScale("auto")}
-              className="grid min-h-10 min-w-10 place-items-center rounded-control border border-line-subtle bg-transparent text-muted transition hover:border-line hover:bg-hover hover:text-base-content"
-            >
-              <Maximize2 aria-hidden="true" className="size-4" />
-            </button>
-            <label className="sr-only" htmlFor="keymap-zoom">
-              Keyboard zoom
-            </label>
-            <select
-              id="keymap-zoom"
-              className="min-h-10 rounded-control border border-line-subtle bg-transparent px-3 text-sm text-base-content"
-              value={keymapScale}
-              onChange={(e) => {
-                const value = deserializeLayoutZoom(e.target.value);
-                setKeymapScale(value);
-              }}
-            >
-              <option value="auto">Fit</option>
-              <option value={0.25}>25%</option>
-              <option value={0.5}>50%</option>
-              <option value={0.75}>75%</option>
-              <option value={1}>100%</option>
-              <option value={1.25}>125%</option>
-              <option value={1.5}>150%</option>
-              <option value={2}>200%</option>
-            </select>
-          </div>
-          {countDraftBindings(draftBindings) > 0 && (
-            <p className="text-xs leading-relaxed text-base-content/55 lg:col-span-3">
-              Layer structure and physical layout stay locked until this key
-              draft is applied or discarded.
-            </p>
-          )}
+        {countDraftBindings(draftBindings) > 0 && (
+          <p className="text-xs leading-relaxed text-tertiary">
+            Layer structure and physical layout stay locked until this key draft
+            is applied or discarded.
+          </p>
+        )}
+
+        {canTypeThrough && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedKeyPosition((current) => current ?? order[0]);
+              setIsTyping(true);
+            }}
+            disabled={isApplyingDraft}
+            className="flex min-h-9 items-center gap-2 rounded-control px-1 text-left text-sm text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40"
+          >
+            <Keyboard2 aria-hidden="true" className="size-4 shrink-0" />
+            <span className="min-w-0 truncate">Type through</span>
+          </button>
+        )}
+
+        {/* Corner anchor: zoom is pinned to the foot of the rail, not stacked
+            under the layers. The two clusters hold opposite corners and the
+            space between them stays empty, so the rail reads as a frame around
+            the canvas rather than as a column of controls. */}
+        <div className="mt-auto flex items-center gap-1 pt-2">
+          <button
+            type="button"
+            aria-label="Fit keyboard to viewport"
+            title="Fit keyboard to viewport"
+            onClick={() => setKeymapScale("auto")}
+            className="grid min-h-9 min-w-9 place-items-center rounded-control text-tertiary outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            <Maximize2 aria-hidden="true" className="size-4" />
+          </button>
+          <label className="sr-only" htmlFor="keymap-zoom">
+            Keyboard zoom
+          </label>
+          <select
+            id="keymap-zoom"
+            className="min-h-9 rounded-control bg-transparent px-1 text-sm text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+            value={keymapScale}
+            onChange={(e) => {
+              const value = deserializeLayoutZoom(e.target.value);
+              setKeymapScale(value);
+            }}
+          >
+            <option value="auto">Fit</option>
+            <option value={0.25}>25%</option>
+            <option value={0.5}>50%</option>
+            <option value={0.75}>75%</option>
+            <option value={1}>100%</option>
+            <option value={1.25}>125%</option>
+            <option value={1.5}>150%</option>
+            <option value={2}>200%</option>
+          </select>
         </div>
+      </aside>
 
-        {/* The canvas catches the application's shared light rather than a
-            fixed white glow, which was a bright blob in dark mode. */}
+      {/* The canvas catches the application's shared light rather than a
+          fixed white glow, which was a bright blob in dark mode. */}
+      <div className="relative order-none min-h-0 min-w-0 xl:col-start-2 xl:row-start-1">
         <section
           aria-label="Keyboard layout"
-          className="wafer-substrate relative grid min-h-0 min-w-0 place-items-center overflow-auto p-4 md:p-8"
+          className="wafer-substrate grid h-full min-h-0 min-w-0 place-items-center overflow-auto p-4 md:p-6"
         >
           {layouts && keymap && behaviors ? (
             <KeymapComp
@@ -958,7 +1167,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               scale={keymapScale}
               selectedLayerIndex={selectedLayerIndex}
               selectedKeyPosition={selectedKeyPosition}
-              onKeyPositionClicked={setSelectedKeyPosition}
+              onKeyPositionClicked={onKeyPositionClicked}
             />
           ) : (
             <div className="grid max-w-sm place-items-center gap-3 rounded-2xl border border-line bg-base-200/75 p-8 text-center shadow-sm">
@@ -975,80 +1184,158 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           )}
         </section>
 
-        <div className="wafer-finish-panel flex min-h-10 items-center gap-2 border-t border-line-subtle px-4 text-xs text-muted">
-          <MousePointer2 aria-hidden="true" className="size-3.5" />
-          Select a key, then choose what it should do. Nothing is sent until you
-          review the draft.
-        </div>
-      </main>
+        {/* Teaching text rather than chrome: it reserves no layout, and it
+            disappears once a key is selected and the rail says it instead. */}
+        {!shelfOpen && !isTyping && layouts && keymap && behaviors && (
+          <p className="pointer-events-none absolute inset-x-0 bottom-3 px-4 text-center text-xs text-tertiary">
+            Select a key to bind it. Nothing reaches the keyboard until you
+            review the draft.
+          </p>
+        )}
 
-      <aside className="wafer-finish-panel border-t border-line-subtle xl:col-start-2 xl:row-start-1 xl:flex xl:min-h-0 xl:flex-col xl:border-l xl:border-t-0">
-        <div className="flex min-h-14 items-center justify-between gap-3 border-b border-line-subtle px-3">
-          <div className="min-w-0">
-            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-base-content/50">
-              {selectedKeyPosition === undefined
-                ? "Assignment library"
-                : keymap?.layers[selectedLayerIndex]?.name ||
-                  `Layer ${selectedLayerIndex}`}
-            </p>
-            <h2 className="truncate font-semibold">
-              {selectedKeyPosition === undefined
-                ? "Choose a key"
-                : `Assign key ${selectedKeyPosition + 1}`}
-            </h2>
-            {selectedBindingDescription && (
-              <p className="truncate text-xs text-muted">
-                {selectedBindingDescription}
-              </p>
-            )}
-          </div>
-          {selectedKeyPosition !== undefined && (
-            <div className="flex shrink-0 items-center gap-2">
-              <span
-                title="Changes stay local until Review"
-                aria-label="Changes stay local until Review"
-                role="status"
-                tabIndex={0}
-                className="grid size-8 place-items-center rounded-full text-muted outline-none focus-visible:ring-2 focus-visible:ring-focus"
-              >
-                <ShieldCheck aria-hidden="true" className="size-4" />
-              </span>
-              <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
-                K{String(selectedKeyPosition).padStart(2, "0")}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {keymap && selectedBinding ? (
-          <div className="grid gap-3 overflow-y-auto p-3">
-            <BehaviorBindingPicker
-              key={`${selectedLayerIndex}:${selectedKeyPosition}`}
-              binding={selectedBinding}
-              behaviors={Object.values(behaviors)}
-              layers={keymap.layers.map(({ id, name }, li) => ({
-                id,
-                name: name || li.toLocaleString(),
-              }))}
-              isDisabled={isApplyingDraft}
-              onBindingChanged={doUpdateBinding}
-            />
-          </div>
-        ) : (
-          <div className="grid min-h-56 place-items-center p-6 text-center">
-            <div className="max-w-[15rem]">
-              <div className="mx-auto mb-3 grid size-11 place-items-center rounded-xl border border-line bg-base-100 text-base-content/55">
-                <MousePointer2 aria-hidden="true" className="size-5" />
-              </div>
-              <p className="font-semibold">Choose a key</p>
-              <p className="mt-1 text-sm leading-relaxed text-base-content/60">
-                Select any key on the layout to assign a key press, shortcut,
-                layer, or device action.
-              </p>
-            </div>
+        {/* The mode's entire interface. Everything else is gone, because
+            while you are typing the board through, the board is the only
+            thing you are looking at. */}
+        {isTyping && (
+          <div
+            role="status"
+            className="wafer-dispersive pointer-events-auto absolute inset-x-0 bottom-4 mx-auto flex w-fit items-center gap-3 rounded-panel border border-line-subtle bg-panel/95 px-3 py-2 text-xs shadow-[var(--elevation-popover)]"
+            style={
+              { "--dispersion": "var(--dispersion-committed)" } as CSSProperties
+            }
+          >
+            <span className="font-semibold text-ink">Type through</span>
+            <span className="font-mono tabular-nums text-muted">
+              {typedCount}/{order.length}
+            </span>
+            <span className="hidden text-tertiary sm:inline">
+              press a key to bind it · ⌘/Ctrl + ← → to skip · Esc to finish
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsTyping(false)}
+              className="min-h-8 rounded-control px-2 font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              Done
+            </button>
           </div>
         )}
+
+        {paint && (
+          <div
+            role="status"
+            className="wafer-dispersive absolute inset-x-0 bottom-4 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-panel border border-line-subtle bg-panel/95 px-3 py-2 text-xs shadow-[var(--elevation-popover)]"
+            style={
+              { "--dispersion": "var(--dispersion-committed)" } as CSSProperties
+            }
+          >
+            <span className="min-w-0 truncate">
+              <span className="font-semibold text-ink">Applying</span>{" "}
+              <span className="text-muted">{paint.label}</span>
+            </span>
+
+            {/* Only offered for hold-taps, because it is only meaningful there:
+                on a plain key press there is no second parameter for the
+                existing usage to survive into. */}
+            {paintIsHoldTap && (
+              <label className="flex shrink-0 items-center gap-1.5 text-tertiary">
+                <input
+                  type="checkbox"
+                  checked={paint.keepTap}
+                  onChange={(event) =>
+                    setPaint({ ...paint, keepTap: event.target.checked })
+                  }
+                  className="size-3.5 accent-[rgb(var(--wafer-primary))]"
+                />
+                keep each key as the tap
+              </label>
+            )}
+
+            <span className="hidden shrink-0 text-tertiary lg:inline">
+              click keys to apply
+            </span>
+            <button
+              type="button"
+              onClick={() => setPaint(null)}
+              className="min-h-8 shrink-0 rounded-control px-2 font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              Done
+            </button>
+          </div>
+        )}
+      </div>
+
+      <aside
+        aria-label="Key assignment"
+        hidden={!shelfOpen || isTyping}
+        className="order-2 flex min-h-0 flex-col border-line-subtle xl:order-none xl:col-start-3 xl:row-start-1 xl:border-l"
+      >
+        {shelfOpen && (
+          <>
+            <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-line-subtle px-3">
+              <div className="min-w-0">
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
+                  {keymap?.layers[selectedLayerIndex]?.name ||
+                    `Layer ${selectedLayerIndex}`}
+                </p>
+                <h2 className="truncate font-semibold text-ink">
+                  Bind key {(selectedKeyPosition ?? 0) + 1}
+                </h2>
+                {selectedBindingDescription && (
+                  <p className="truncate text-xs text-muted">
+                    {selectedBindingDescription}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
+                  K{String(selectedKeyPosition ?? 0).padStart(2, "0")}
+                </span>
+                <button
+                  type="button"
+                  title="Apply this binding to other keys"
+                  onClick={() =>
+                    selectedBinding &&
+                    setPaint({
+                      binding: selectedBinding,
+                      keepTap: true,
+                      label: selectedBindingDescription ?? "this binding",
+                    })
+                  }
+                  className="min-h-8 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  Repeat on keys
+                </button>
+                <button
+                  type="button"
+                  aria-label="Clear key selection"
+                  title="Clear selection (Esc)"
+                  onClick={() => setSelectedKeyPosition(undefined)}
+                  className="grid size-10 place-items-center rounded-control text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  <X aria-hidden="true" className="size-4" />
+                </button>
+              </div>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              {keymap && selectedBinding && (
+                <BehaviorBindingPicker
+                  key={`${selectedLayerIndex}:${selectedKeyPosition}`}
+                  binding={selectedBinding}
+                  behaviors={Object.values(behaviors)}
+                  layers={keymap.layers.map(({ id, name }, li) => ({
+                    id,
+                    name: name || li.toLocaleString(),
+                  }))}
+                  isDisabled={isApplyingDraft}
+                  onBindingChanged={doUpdateBinding}
+                />
+              )}
+            </div>
+          </>
+        )}
       </aside>
-    </div>
+    </main>
   );
 }

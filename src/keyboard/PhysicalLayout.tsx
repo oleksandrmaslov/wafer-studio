@@ -87,12 +87,25 @@ export const PhysicalLayout = ({
 
     const calculateScale = () => {
       if (zoom === "auto") {
-        const padding = Math.min(window.innerWidth, window.innerHeight) * 0.05; // Padding when in auto mode
+        // clientWidth/clientHeight include the parent's own padding, so
+        // measuring them directly reports space the board cannot actually use
+        // and Fit scales the board too large — it then overflows and the canvas
+        // grows a scrollbar. Subtract the padding to get the real content box.
+        const styles = getComputedStyle(parent);
+        const padX =
+          parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+        const padY =
+          parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+        const availableWidth = Math.max(1, parent.clientWidth - padX);
+        const availableHeight = Math.max(1, parent.clientHeight - padY);
+
+        // A little breathing room so the board never touches the rails.
+        const margin = Math.min(window.innerWidth, window.innerHeight) * 0.02;
         const newScale = Math.min(
-          parent.clientWidth / (element.clientWidth + 2 * padding),
-          parent.clientHeight / (element.clientHeight + 2 * padding),
+          availableWidth / (element.clientWidth + 2 * margin),
+          availableHeight / (element.clientHeight + 2 * margin),
         );
-        setScale(newScale);
+        setScale(Math.max(newScale, 0.05));
       } else {
         setScale(zoom || 1);
       }

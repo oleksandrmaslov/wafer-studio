@@ -11,6 +11,7 @@ import {
   Bluetooth,
   Cable,
   ChevronLeft,
+  ChevronRight,
   Eye,
   Layers,
   Lightbulb,
@@ -29,7 +30,11 @@ import { HidUsagePicker, type HidUsagePage } from "./HidUsagePicker";
 import { validateBindingParameters, validateValue } from "./parameters";
 import { ActionRow } from "../design-system/ActionRow";
 import { SearchField } from "../design-system/SearchField";
-import { SegmentedControl } from "../design-system/SegmentedControl";
+import {
+  isCanonicalKeyPress,
+  isMultiBehavior,
+  normalizeName,
+} from "./behaviorKinds";
 
 export interface BehaviorBindingPickerProps {
   binding: BehaviorBinding;
@@ -39,7 +44,6 @@ export interface BehaviorBindingPickerProps {
   onBindingChanged: (binding: BehaviorBinding) => void;
 }
 
-type BrowserTab = "keys" | "actions" | "multi";
 type ActionGroupId =
   | "flow"
   | "layers"
@@ -80,43 +84,54 @@ const ACTION_GROUPS: readonly {
   { id: "other", label: "Other actions", shortLabel: "Other" },
 ];
 
-function normalizeName(name: string): string {
-  return name
-    .toLocaleLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+/**
+ * One collapsible block in the picker.
+ *
+ * The tab strip this replaced hid nine tenths of the catalogue behind a guess
+ * about which bucket a thing was in. Expanding every group instead solved that
+ * and created a list too long to scroll. Collapsed groups are the middle: the
+ * default view is a short menu of about ten headings you can read at a glance,
+ * and opening one costs a single click.
+ *
+ * Search forces every group open, so typing never has to fight the collapse.
+ */
+function PickerGroup({
+  label,
+  count,
+  defaultOpen = false,
+  forceOpen = false,
+  children,
+}: {
+  label: string;
+  count: number;
+  defaultOpen?: boolean;
+  forceOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const isOpen = forceOpen || open;
 
-function isEmptyParameter(values: BehaviorParameterValueDescription[]) {
   return (
-    values.length === 0 || values.every((value) => value.nil !== undefined)
-  );
-}
-
-function isCanonicalKeyPress(behavior: GetBehaviorDetailsResponse): boolean {
-  return (
-    normalizeName(behavior.displayName) === "key press" &&
-    behavior.metadata.some(
-      ({ param1, param2 }) =>
-        param1.some((value) => value.hidUsage !== undefined) &&
-        isEmptyParameter(param2),
-    )
-  );
-}
-
-function isMultiBehavior(behavior: GetBehaviorDetailsResponse): boolean {
-  const name = normalizeName(behavior.displayName);
-  if (!["mod tap", "layer tap", "hold tap"].includes(name)) return false;
-
-  return behavior.metadata.some(
-    ({ param1, param2 }) =>
-      param1.some(
-        (value) => value.hidUsage !== undefined || value.layerId !== undefined,
-      ) &&
-      param2.some(
-        (value) => value.hidUsage !== undefined || value.layerId !== undefined,
-      ),
+    <section aria-label={label}>
+      <h3>
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          onClick={() => setOpen((previous) => !previous)}
+          className="flex min-h-9 w-full items-center gap-1.5 rounded-control px-1 text-left text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={`size-3.5 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
+          />
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          <span className="font-mono text-[0.625rem] tabular-nums text-tertiary/70">
+            {count}
+          </span>
+        </button>
+      </h3>
+      {isOpen && <div className="pb-1 pt-0.5">{children}</div>}
+    </section>
   );
 }
 
@@ -306,14 +321,6 @@ function createEditorState(
   };
 }
 
-function tabForBehavior(
-  behavior: GetBehaviorDetailsResponse | undefined,
-): BrowserTab {
-  if (behavior && isCanonicalKeyPress(behavior)) return "keys";
-  if (behavior && isMultiBehavior(behavior)) return "multi";
-  return "actions";
-}
-
 function behaviorMatchesQuery(
   behavior: GetBehaviorDetailsResponse,
   query: string,
@@ -378,17 +385,6 @@ export const BehaviorBindingPicker = ({
   isDisabled = false,
   onBindingChanged,
 }: BehaviorBindingPickerProps) => {
-  const currentBehavior = useMemo(
-    () => behaviors.find((behavior) => behavior.id === binding.behaviorId),
-    [behaviors, binding.behaviorId],
-  );
-  const currentTab = tabForBehavior(currentBehavior);
-  const [activeTab, setActiveTab] = useState<BrowserTab>(currentTab);
-  const [activeActionGroup, setActiveActionGroup] = useState<ActionGroupId>(
-    currentBehavior && currentTab === "actions"
-      ? actionPresentation(currentBehavior).group
-      : "flow",
-  );
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
@@ -417,38 +413,9 @@ export const BehaviorBindingPicker = ({
         ),
     [behaviors],
   );
-  const availableActionGroups = useMemo(
-    () =>
-      ACTION_GROUPS.filter(({ id }) =>
-        actionBehaviors.some(
-          (behavior) => actionPresentation(behavior).group === id,
-        ),
-      ),
-    [actionBehaviors],
-  );
-
   useEffect(() => {
     setEditor(null);
-    setActiveTab(currentTab);
-    if (currentBehavior && currentTab === "actions") {
-      setActiveActionGroup(actionPresentation(currentBehavior).group);
-    }
-  }, [
-    binding.behaviorId,
-    binding.param1,
-    binding.param2,
-    currentBehavior,
-    currentTab,
-  ]);
-
-  useEffect(() => {
-    if (
-      availableActionGroups.length > 0 &&
-      !availableActionGroups.some(({ id }) => id === activeActionGroup)
-    ) {
-      setActiveActionGroup(availableActionGroups[0].id);
-    }
-  }, [activeActionGroup, availableActionGroups]);
+  }, [binding.behaviorId, binding.param1, binding.param2]);
 
   const keyUsageDescription = useMemo(
     () =>
@@ -503,13 +470,6 @@ export const BehaviorBindingPicker = ({
       ),
   );
 
-  const chooseTab = (tab: BrowserTab) => {
-    if (tab === "keys" && !keyPressBehavior) return;
-    setActiveTab(tab);
-    setEditor(null);
-    setSearch("");
-  };
-
   const chooseKeyUsage = (usage: number) => {
     if (!keyPressBehavior || isDisabled) return;
     onBindingChanged({
@@ -519,16 +479,51 @@ export const BehaviorBindingPicker = ({
     });
   };
 
+  /**
+   * Push an editor state onto the key, but only once it is actually valid.
+   *
+   * Everything here edits live. Choosing a key applied instantly while
+   * choosing an action made you press "Assign to key" afterwards, which is two
+   * different ideas of what a click means inside one panel — and the button was
+   * a commit inside a commit, since the draft already holds everything back
+   * until Review. Now a click is a click, and the key on the canvas updates as
+   * you refine the parameters.
+   *
+   * Invalid intermediate states are simply not sent; the panel says what is
+   * still missing instead of disabling a button that explains nothing.
+   */
+  const publish = (next: EditorState, behavior: GetBehaviorDetailsResponse) => {
+    if (isDisabled) return;
+    if (
+      !validateBindingParameters(
+        behavior.metadata,
+        layerIds,
+        next.param1,
+        next.param2,
+      )
+    ) {
+      return;
+    }
+    onBindingChanged({
+      behaviorId: next.behaviorId,
+      param1: next.param1 ?? 0,
+      param2: next.param2 ?? 0,
+    });
+  };
+
   const chooseBehavior = (behavior: GetBehaviorDetailsResponse) => {
     if (isDisabled || behavior.metadata.length === 0) return;
 
-    const presentation = actionPresentation(behavior);
-    if (!hasConfigurableParameters(behavior) && !presentation.warning) {
+    if (!hasConfigurableParameters(behavior)) {
       onBindingChanged({ behaviorId: behavior.id, param1: 0, param2: 0 });
       return;
     }
 
-    setEditor(createEditorState(behavior, binding, layers));
+    // Open the parameters *and* apply the defaults, so the key changes on the
+    // click that chose it rather than waiting for a second confirmation.
+    const next = createEditorState(behavior, binding, layers);
+    setEditor(next);
+    publish(next, behavior);
   };
 
   const changeParam1 = (param1?: number) => {
@@ -536,20 +531,20 @@ export const BehaviorBindingPicker = ({
     const matchingSet = editorBehavior.metadata.find((set) =>
       validateValue(layerIds, param1, set.param1),
     );
-    setEditor({
+    const next = {
       ...editor,
       param1,
       param2: defaultParameter(matchingSet?.param2, layers),
-    });
+    };
+    setEditor(next);
+    publish(next, editorBehavior);
   };
 
-  const assignEditor = () => {
-    if (!editor || !editorBehavior || !editorIsValid || isDisabled) return;
-    onBindingChanged({
-      behaviorId: editor.behaviorId,
-      param1: editor.param1 ?? 0,
-      param2: editor.param2 ?? 0,
-    });
+  const changeParam2 = (param2?: number) => {
+    if (!editor || !editorBehavior) return;
+    const next = { ...editor, param2 };
+    setEditor(next);
+    publish(next, editorBehavior);
   };
 
   const filteredActions = actionBehaviors.filter((behavior) =>
@@ -573,19 +568,12 @@ export const BehaviorBindingPicker = ({
   const param2Label = editorIsMulti ? "Tap action" : undefined;
 
   return (
+    // One list, grouped by heading. There used to be a Keys/Actions/Multi tab
+    // strip on top of a category chip strip — two levels of navigation over a
+    // list short enough to scroll, which meant finding anything required
+    // guessing which of twelve buckets it was filed under first. Everything is
+    // now on one scroll, in one order, and search cuts across all of it.
     <section aria-label="Assign key action" className="grid gap-3">
-      <SegmentedControl
-        ariaLabel="Assignment type"
-        value={activeTab}
-        disabled={isDisabled}
-        options={[
-          { id: "keys", label: "Keys", disabled: !keyPressBehavior },
-          { id: "actions", label: "Actions" },
-          { id: "multi", label: "Multi" },
-        ]}
-        onChange={chooseTab}
-      />
-
       {editor && editorBehavior ? (
         <div className="grid gap-3">
           <button
@@ -594,7 +582,7 @@ export const BehaviorBindingPicker = ({
             className="flex min-h-10 items-center gap-2 justify-self-start rounded-lg px-2 text-xs font-semibold text-base-content/60 outline-none hover:bg-base-300 hover:text-base-content focus-visible:ring-2 focus-visible:ring-focus"
           >
             <ChevronLeft aria-hidden="true" className="size-4" />
-            Back to {activeTab === "multi" ? "multi" : "actions"}
+            Back to the list
           </button>
 
           <div>
@@ -627,165 +615,174 @@ export const BehaviorBindingPicker = ({
                   param2Label={param2Label}
                   layers={layers}
                   onParam1Changed={changeParam1}
-                  onParam2Changed={(param2) =>
-                    setEditor((current) =>
-                      current ? { ...current, param2 } : current,
-                    )
-                  }
+                  onParam2Changed={changeParam2}
                 />
               </div>
             )}
 
-            <button
-              type="button"
-              disabled={!editorIsValid || isDisabled}
-              onClick={assignEditor}
-              className="mt-5 min-h-11 w-full rounded-xl wafer-accent px-4 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
+            {/* Replaces the Apply button. The key is already bound; this only
+                reports when a choice is still outstanding. */}
+            <p
+              aria-live="polite"
+              className="mt-4 text-xs leading-relaxed text-tertiary"
             >
-              {editorIsValid ? "Assign to key" : "Finish required choices"}
-            </button>
+              {editorIsValid
+                ? "Applied to the key. Nothing reaches the keyboard until you review the draft."
+                : "Choose the remaining option to apply this to the key."}
+            </p>
           </div>
         </div>
-      ) : activeTab === "keys" ? (
-        keyPressBehavior ? (
-          <div className="grid gap-4">
-            <HidUsageGrid
-              value={
-                binding.behaviorId === keyPressBehavior.id
-                  ? binding.param1
-                  : undefined
-              }
-              items={keyCatalog}
-              disabled={isDisabled}
-              onValueChange={chooseKeyUsage}
-              ariaLabel="Choose a key or shortcut"
-            />
-            <details className="rounded-xl border border-line bg-base-100">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center px-3 text-xs font-semibold text-base-content/55 [&::-webkit-details-marker]:hidden">
-                More firmware-supported usages
-              </summary>
-              <fieldset
-                disabled={isDisabled}
-                className="border-t border-line p-3 disabled:opacity-45"
-              >
-                <HidUsagePicker
-                  label="Key or consumer usage"
-                  value={
-                    binding.behaviorId === keyPressBehavior.id
-                      ? binding.param1
-                      : undefined
-                  }
-                  usagePages={usagePages}
-                  onValueChanged={(value) => {
-                    if (value !== undefined) chooseKeyUsage(value);
-                  }}
-                />
-              </fieldset>
-            </details>
-          </div>
-        ) : (
-          <p className="rounded-xl border border-line bg-base-100 p-4 text-sm text-base-content/60">
-            This keyboard did not report a standard key-press action.
-          </p>
-        )
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           <SearchField
-            ariaLabel={`Search ${activeTab === "multi" ? "multi actions" : "actions"}`}
+            ariaLabel="Search keys and actions"
             value={search}
             disabled={isDisabled}
             onChange={setSearch}
-            placeholder={
-              activeTab === "multi" ? "Search tap and hold…" : "Search actions…"
-            }
+            placeholder="Search keys and actions…"
           />
 
-          {activeTab === "actions" && !search && (
-            <div
-              role="group"
-              aria-label="Action category"
-              className="wafer-category-strip"
+          {/* Keys first: it is what the overwhelming majority of bindings are,
+              so it should not be behind a tab.
+
+              The grid carries its own search box, which put two search fields
+              one above the other in a rail this narrow. It is driven by the
+              panel's search instead — one field filters keys and actions
+              together, which is what a single box in a single list implies. */}
+          {keyPressBehavior ? (
+            <PickerGroup
+              label="Keys"
+              count={keyCatalog.length}
+              defaultOpen
+              forceOpen={Boolean(search)}
             >
-              {availableActionGroups.map(({ id, shortLabel }) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={activeActionGroup === id}
-                  disabled={isDisabled}
-                  onClick={() => setActiveActionGroup(id)}
-                  className="wafer-category-chip"
-                >
-                  {shortLabel}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {activeTab === "actions" ? (
-            ACTION_GROUPS.map(({ id, label }) => {
-              if (!search && id !== activeActionGroup) return null;
-
-              const groupBehaviors = filteredActions.filter(
-                (behavior) => actionPresentation(behavior).group === id,
-              );
-              if (groupBehaviors.length === 0) return null;
-
-              return (
-                <section key={id} aria-labelledby={`action-group-${id}`}>
-                  <h3
-                    id={`action-group-${id}`}
-                    className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+              <HidUsageGrid
+                value={
+                  binding.behaviorId === keyPressBehavior.id
+                    ? binding.param1
+                    : undefined
+                }
+                items={keyCatalog}
+                disabled={isDisabled}
+                onValueChange={chooseKeyUsage}
+                ariaLabel="Choose a key or shortcut"
+                showSearch={false}
+                searchValue={search}
+              />
+              {!search && (
+                <details className="mt-2 rounded-xl border border-line bg-base-100">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center px-3 text-xs font-semibold text-base-content/55 [&::-webkit-details-marker]:hidden">
+                    More firmware-supported usages
+                  </summary>
+                  <fieldset
+                    disabled={isDisabled}
+                    className="border-t border-line p-3 disabled:opacity-45"
                   >
-                    {label}
-                  </h3>
-                  <div className="grid gap-1">
-                    {groupBehaviors.map((behavior) => (
-                      <BehaviorCard
-                        key={behavior.id}
-                        behavior={behavior}
-                        selected={binding.behaviorId === behavior.id}
-                        disabled={isDisabled}
-                        onSelect={() => chooseBehavior(behavior)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })
-          ) : filteredMulti.length > 0 ? (
-            <div className="grid gap-1">
-              {filteredMulti.map((behavior) => (
-                <BehaviorCard
-                  key={behavior.id}
-                  behavior={behavior}
-                  selected={binding.behaviorId === behavior.id}
-                  disabled={isDisabled}
-                  onSelect={() => chooseBehavior(behavior)}
-                />
-              ))}
-            </div>
+                    <HidUsagePicker
+                      label="Key or consumer usage"
+                      value={
+                        binding.behaviorId === keyPressBehavior.id
+                          ? binding.param1
+                          : undefined
+                      }
+                      usagePages={usagePages}
+                      onValueChanged={(value) => {
+                        if (value !== undefined) chooseKeyUsage(value);
+                      }}
+                    />
+                  </fieldset>
+                </details>
+              )}
+            </PickerGroup>
           ) : (
-            <div className="rounded-xl border border-dashed border-line bg-base-100 px-4 py-8 text-center">
-              <p className="text-sm font-semibold">
-                {search
-                  ? "No matching multi actions"
-                  : "No multi actions available"}
+            <p className="rounded-xl border border-line bg-base-100 p-4 text-sm text-base-content/60">
+              This keyboard did not report a standard key-press action.
+            </p>
+          )}
+
+          {filteredMulti.length > 0 && (
+            <PickerGroup
+              label="Tap and hold"
+              count={filteredMulti.length}
+              forceOpen={Boolean(search)}
+            >
+              <div className="grid gap-1">
+                {filteredMulti.map((behavior) => (
+                  <BehaviorCard
+                    key={behavior.id}
+                    behavior={behavior}
+                    selected={binding.behaviorId === behavior.id}
+                    disabled={isDisabled}
+                    onSelect={() => chooseBehavior(behavior)}
+                  />
+                ))}
+              </div>
+            </PickerGroup>
+          )}
+
+          {ACTION_GROUPS.map(({ id, label }) => {
+            const groupBehaviors = filteredActions.filter(
+              (behavior) => actionPresentation(behavior).group === id,
+            );
+            if (groupBehaviors.length === 0) return null;
+
+            return (
+              <PickerGroup
+                key={id}
+                label={label}
+                count={groupBehaviors.length}
+                forceOpen={Boolean(search)}
+              >
+                <div className="grid gap-1">
+                  {groupBehaviors.map((behavior) => (
+                    <BehaviorCard
+                      key={behavior.id}
+                      behavior={behavior}
+                      selected={binding.behaviorId === behavior.id}
+                      disabled={isDisabled}
+                      onSelect={() => chooseBehavior(behavior)}
+                    />
+                  ))}
+                </div>
+              </PickerGroup>
+            );
+          })}
+
+          {/* Said plainly, where people look for the thing that is missing.
+              A binding in this protocol is one behavior id and two numbers,
+              so there is no way to express one behavior wrapped around
+              another. Composite hold-taps, macros and tap-dances are built
+              when the firmware is compiled; Studio can bind the ones your
+              board already has, and cannot author new ones. Leaving that
+              unsaid just means people hunt for a feature that is not there. */}
+          {!search && (
+            <div className="border-t border-line-subtle pt-3 text-[0.6875rem] leading-relaxed text-tertiary">
+              <p>
+                Each behavior decides what its own two parameters accept.
+                Mod-tap takes two keycodes because its firmware definition wires
+                both sides to key presses; layer-tap takes a layer and a keycode
+                because its definition wires the hold side to a layer.
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-base-content/55">
-                Multi shows hold/tap behaviors already provided by this
-                keyboard.
+              <p className="mt-2">
+                Pairing sides that no existing behavior pairs — hold a Bluetooth
+                action, tap a layer — needs a new hold-tap written into the
+                keymap and compiled. The same is true of macros and tap-dances.
+                Studio assigns what your firmware already defines; it cannot
+                define new ones.
               </p>
             </div>
           )}
 
-          {activeTab === "actions" && filteredActions.length === 0 && (
-            <div className="rounded-xl border border-dashed border-line bg-base-100 px-4 py-8 text-center">
-              <p className="text-sm font-semibold">No matching actions</p>
-              <p className="mt-1 text-xs text-base-content/55">
-                Try Bluetooth, layer, mouse, lighting, or power.
-              </p>
-            </div>
-          )}
+          {search &&
+            filteredActions.length === 0 &&
+            filteredMulti.length === 0 && (
+              <div className="rounded-xl border border-dashed border-line bg-base-100 px-4 py-8 text-center">
+                <p className="text-sm font-semibold">No matching actions</p>
+                <p className="mt-1 text-xs text-base-content/55">
+                  Try Bluetooth, layer, mouse, lighting, or power.
+                </p>
+              </div>
+            )}
         </div>
       )}
     </section>
