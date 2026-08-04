@@ -24,7 +24,7 @@
     --surface-panel: 246 247 249; /* #F6F7F9 */
     --surface-raised: 255 255 255; /* #FFFFFF */
     --surface-hover: 230 233 236; /* #E6E9EC */
-    --surface-selected: 224 229 234; /* #E0E5EA */
+    --surface-selected: 255 237 231; /* #FFEDE7 */
     --surface-overlay: 252 253 254; /* #FCFDFE */
 
     --ink-primary: 20 22 24; /* #141618 */
@@ -35,32 +35,32 @@
     --line-default: 209 213 218; /* #D1D5DA */
     --line-strong: 160 166 173; /* #A0A6AD */
 
-    /* ---- Accent -----------------------------------------------------------
-       There is no accent hue in this system. Selection, commitment, and primary
-       intent are carried by the material, never by a colour. These tokens are
-       the material's neutral stand-ins: what shows before the shader has
-       painted, and wherever a flat fallback is needed.
+    /* ---- Spectrum ---------------------------------------------------------
+       Sampled from the mark's dispersed edge. The order is the order light
+       splits in: azure, violet, coral, amber. `--wafer-primary` is not a
+       separate brand colour — it is the coral sample of this same ramp, which
+       is why accent and dispersion never look like two different systems. */
+    --spectral-azure: 64 190 245; /* #40BEF5 */
+    --spectral-violet: 149 104 240; /* #9568F0 */
+    --spectral-coral: 255 106 61; /* #FF6A3D */
+    --spectral-amber: 240 166 74; /* #F0A64A */
 
-       There is deliberately no spectral palette. Colour here is produced, not
-       chosen: the shader splits the RGB channels across one achromatic ramp,
-       and the hues that appear are whatever that split makes of it. */
-    --wafer-primary: 176 184 192; /* #B0B8C0 */
-    --wafer-primary-hover: 202 210 218; /* #CAD2DA */
-    --wafer-deep: 108 116 124; /* #6C747C */
-    /* Marks a selected label. Maximum ink, not a hue. */
-    --accent-foreground: 18 21 24; /* #121518, 15.6:1 on panel */
-    --primary-content: 14 16 18; /* #0E1012 */
+    --wafer-primary: 255 106 61; /* #FF6A3D */
+    /* Accent hover. Deliberately not `--wafer-deep`: darkening the fill drops
+       dark-ink-on-accent below AA. This stays light enough to carry it. */
+    --wafer-primary-hover: 232 90 46; /* #E85A2E, 4.8:1 with primary-content */
+    --wafer-deep: 158 50 31; /* #9E321F */
+    --accent-foreground: 143 46 23; /* #8F2E17, 7.9:1 on panel */
+    /* Dark ink on coral, not white. White on #FF6A3D is 2.9:1 and fails AA. */
+    --primary-content: 38 12 4; /* #260C04, 5.8:1 on the accent */
 
     /* ---- Metal ------------------------------------------------------------
-       The two ends of the material's value range. On light paper the dark end
-       has to be genuinely dark or the surface has nowhere to go but white. */
+       The two ends of the specular range. Everything metallic is built from
+       these plus the spectrum; there are no per-component chrome gradients. */
+    /* The metal's value range. On light paper the dark end has to be genuinely
+       dark or the surface has nowhere to go but white. */
     --metal-specular: 255 255 255;
     --metal-shadow: 88 95 103;
-
-    /* The plate the material is composited over wherever text sits on it, and
-       the ink that goes on top. 16:1, so no shader setting can break it. */
-    --metal-plate: 226 231 235; /* #E2E7EB */
-    --metal-ink: 14 16 18; /* #0E1012 */
 
     /* ---- Status -----------------------------------------------------------
        Status colours sit outside the spectrum on purpose. Meaning must never
@@ -106,7 +106,7 @@
       --surface-panel: 22 23 25; /* #161719 */
       --surface-raised: 29 31 33; /* #1D1F21 */
       --surface-hover: 38 40 43; /* #26282B */
-      --surface-selected: 46 50 54; /* #2E3236 */
+      --surface-selected: 47 38 34; /* #2F2622 */
       --surface-overlay: 26 28 30; /* #1A1C1E */
 
       --ink-primary: 240 242 244; /* #F0F2F4 */
@@ -117,19 +117,22 @@
       --line-default: 52 55 59; /* #34373B */
       --line-strong: 84 89 95; /* #54595F */
 
-      --wafer-primary: 198 206 214; /* #C6CED6 */
-      --wafer-primary-hover: 224 231 238; /* #E0E7EE */
-      --wafer-deep: 132 140 148; /* #848C94 */
-      --accent-foreground: 246 249 252; /* #F6F9FC, 15.2:1 on panel */
-      --primary-content: 14 16 18; /* #0E1012 */
+      /* Dispersion on black needs more chroma headroom to survive at 1px. */
+      --spectral-azure: 90 214 255; /* #5AD6FF */
+      --spectral-violet: 173 128 255; /* #AD80FF */
+      --spectral-coral: 255 122 92; /* #FF7A5C */
+      --spectral-amber: 255 186 102; /* #FFBA66 */
+
+      --wafer-primary: 255 122 92; /* #FF7A5C */
+      /* On dark, the accent brightens on hover rather than deepening, which
+         both keeps contrast and matches the system's logic: it catches light. */
+      --wafer-primary-hover: 255 150 124; /* #FF967C */
+      --wafer-deep: 201 78 44; /* #C94E2C */
+      --accent-foreground: 255 158 127; /* #FF9E7F, 8.4:1 on panel */
+      --primary-content: 20 16 14;
 
       --metal-specular: 246 250 252;
       --metal-shadow: 6 8 10;
-
-      /* The plate stays bright in dark mode too. A metal accent on a near-black
-         interface is the mark's own logic, and dark ink on it still clears AA. */
-      --metal-plate: 222 228 234; /* #DEE4EA */
-      --metal-ink: 14 16 18; /* #0E1012 */
 
       --status-success: 106 200 156; /* #6AC89C */
       --status-warning: 232 173 90; /* #E8AD5A */

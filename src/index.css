@@ -1,5 +1,5 @@
 @import "./design-system/tokens.css";
-@import "./design-system/metal.css";
+@import "./design-system/dispersion.css";
 
 @tailwind base;
 @tailwind components;
@@ -58,11 +58,7 @@
   /* ---- Surfaces ---------------------------------------------------------- */
   .wafer-finish-panel {
     background-color: rgb(var(--surface-panel));
-    background-image: radial-gradient(
-      circle 56vmax at calc(var(--light-x) * 100vw) calc(var(--light-y) * 100vh),
-      rgb(var(--metal-specular) / 0.06),
-      rgb(var(--metal-specular) / 0) 55%
-    );
+    background-image: var(--wafer-specular-field);
     background-attachment: fixed;
     box-shadow: var(--elevation-panel);
   }
@@ -266,9 +262,7 @@
   /* Hover is gated: on touch, a tap fires :hover and leaves the control stuck
      in a hovered state until the next tap elsewhere. */
   @media (hover: hover) and (pointer: fine) {
-    /* Excludes the primary variant: its background is the material, and a flat
-       hover colour would paint straight over it. */
-    .wafer-button:hover:not(:disabled):not([data-intent="primary"]) {
+    .wafer-button:hover:not(:disabled) {
       border-color: rgb(var(--line-default));
       background: rgb(var(--surface-hover));
       color: rgb(var(--ink-primary));
@@ -280,22 +274,16 @@
     transform: scale(0.97);
   }
 
-  /* Primary intent is the material, not a colour. `.wafer-metal-fill` supplies
-     the background and the ink; this only removes the outline. */
   .wafer-button[data-intent="primary"] {
-    border-color: rgb(var(--line-strong) / 0.45);
+    border-color: transparent;
+    background: rgb(var(--wafer-primary));
+    color: rgb(var(--primary-content));
   }
 
-  /* Hovering thins the plate so more of the material shows through, rather
-     than swapping in a different colour. */
   @media (hover: hover) and (pointer: fine) {
     .wafer-button[data-intent="primary"]:hover:not(:disabled) {
-      background-image: linear-gradient(
-          rgb(var(--metal-plate) / 0.42),
-          rgb(var(--metal-plate) / 0.42)
-        ),
-        var(--wafer-metal-image);
-      border-color: rgb(var(--line-strong) / 0.7);
+      background: rgb(var(--wafer-primary-hover));
+      color: rgb(var(--primary-content));
     }
   }
 
@@ -335,7 +323,7 @@
         transparent var(--progress, 0%),
         rgb(var(--surface-canvas)) var(--progress, 0%)
       ),
-      var(--wafer-metal-image);
+      var(--wafer-spectrum-field);
     background-attachment: scroll, fixed;
   }
 
@@ -351,7 +339,7 @@
         transparent var(--progress, 0%),
         rgb(var(--surface-canvas)) var(--progress, 0%)
       ),
-      var(--wafer-metal-image);
+      var(--wafer-spectrum-field);
     background-attachment: scroll, fixed;
   }
 
@@ -416,34 +404,11 @@
     box-shadow: var(--key-shadow-pressed);
   }
 
-  /* A selected key is ringed in the material. The 2px band gives the metal
-     enough room to show a band edge rather than reading as a flat outline. */
   .wafer-key[data-selected="true"] {
-    position: relative;
-    border-color: transparent;
-    box-shadow: var(--key-shadow);
-  }
-
-  .wafer-key[data-selected="true"]::before {
-    position: absolute;
-    z-index: 1;
-    inset: -1px;
-    padding: 2px;
-    border-radius: inherit;
-    background-image: var(--wafer-metal-image);
-    background-attachment: fixed;
-    background-size: var(--metal-size);
-    background-position: var(--metal-position);
-    content: "";
-    pointer-events: none;
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask-composite: exclude;
+    border-color: rgb(var(--wafer-primary));
+    box-shadow:
+      0 0 0 2px rgb(var(--wafer-primary)),
+      var(--key-shadow);
   }
 
   .wafer-key:focus-visible {

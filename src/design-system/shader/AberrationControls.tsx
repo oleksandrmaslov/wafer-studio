@@ -1,50 +1,39 @@
 import { useId, useMemo } from "react";
 import { Check, Copy, RotateCcw } from "lucide-react";
 import {
-  METAL_GROUPS,
-  METAL_PARAMS,
-  METAL_PARAM_KEYS,
-  METAL_PRESET_LIST,
-  formatParam,
+  ABERRATION_GROUPS,
+  ABERRATION_PARAMS,
+  ABERRATION_PARAM_KEYS,
+  ABERRATION_PRESETS,
+  ABERRATION_PRESET_LIST,
   matchPreset,
-  type MetalParamKey,
-  type MetalParams,
-  type MetalPresetId,
+  type AberrationParamKey,
+  type AberrationParams,
+  type AberrationPresetId,
 } from "./params.ts";
 
 /**
- * The material inspector.
+ * The shader inspector.
  *
- * Generated from the parameter schema, so the panel can never drift out of sync
- * with the shader. Presets are the entry point and the sliders are the escape
- * hatch.
+ * Every control here is generated from the parameter schema, so the panel can
+ * never drift out of sync with the shader. Presets are the entry point and the
+ * sliders are the escape hatch — the same shape as a Figma effect panel, where
+ * you pick a style and then open it up.
  */
 
-/** Converts a displayed value back to the value the shader wants. */
-function fromDisplay(key: MetalParamKey, raw: number): number {
-  const spec = METAL_PARAMS[key];
-  return spec.unit === "percent" ? raw / 100 : raw;
-}
-
-function displayStep(key: MetalParamKey): number {
-  const spec = METAL_PARAMS[key];
-  return spec.unit === "percent" ? 1 : spec.step;
-}
-
 interface SliderRowProps {
-  paramKey: MetalParamKey;
+  paramKey: AberrationParamKey;
   value: number;
   onChange: (value: number) => void;
 }
 
 function SliderRow({ paramKey, value, onChange }: SliderRowProps) {
-  const spec = METAL_PARAMS[paramKey];
+  const spec = ABERRATION_PARAMS[paramKey];
   const id = useId();
   const hintId = `${id}-hint`;
 
+  // Percentage along the track, used to paint the filled portion.
   const progress = ((value - spec.min) / (spec.max - spec.min)) * 100;
-  const suffix =
-    spec.unit === "percent" ? "%" : spec.unit === "degrees" ? "°" : "";
 
   return (
     <div className="grid gap-1.5 py-2">
@@ -55,24 +44,19 @@ function SliderRow({ paramKey, value, onChange }: SliderRowProps) {
         >
           {spec.label}
         </label>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            aria-label={`${spec.label} value`}
-            value={formatParam(paramKey, value)}
-            min={fromDisplay(paramKey, spec.min)}
-            max={fromDisplay(paramKey, spec.max)}
-            step={displayStep(paramKey)}
-            onChange={(event) => {
-              const next = Number(event.currentTarget.value);
-              if (Number.isFinite(next)) onChange(fromDisplay(paramKey, next));
-            }}
-            className="w-14 rounded border border-line-subtle bg-raised/50 px-1.5 py-0.5 text-right font-mono text-[0.6875rem] tabular-nums text-muted outline-none focus-visible:border-focus"
-          />
-          <span className="w-2 font-mono text-[0.625rem] text-tertiary">
-            {suffix}
-          </span>
-        </div>
+        <input
+          type="number"
+          aria-label={`${spec.label} value`}
+          value={Number(value.toFixed(3))}
+          min={spec.min}
+          max={spec.max}
+          step={spec.step}
+          onChange={(event) => {
+            const next = Number(event.currentTarget.value);
+            if (Number.isFinite(next)) onChange(next);
+          }}
+          className="w-16 rounded border border-line-subtle bg-raised/50 px-1.5 py-0.5 text-right font-mono text-[0.6875rem] tabular-nums text-muted outline-none focus-visible:border-focus"
+        />
       </div>
       <input
         id={id}
@@ -93,27 +77,28 @@ function SliderRow({ paramKey, value, onChange }: SliderRowProps) {
   );
 }
 
-export interface MetalControlsProps {
-  params: MetalParams;
-  onChange: (params: MetalParams) => void;
-  onPreset: (preset: MetalPresetId) => void;
+export interface AberrationControlsProps {
+  params: AberrationParams;
+  onChange: (params: AberrationParams) => void;
+  onPreset: (preset: AberrationPresetId) => void;
+  /** Rendered above the presets — usually the live preview. */
   preview?: React.ReactNode;
   copied?: boolean;
   onCopy?: () => void;
 }
 
-export function MetalControls({
+export function AberrationControls({
   params,
   onChange,
   onPreset,
   preview,
   copied = false,
   onCopy,
-}: MetalControlsProps) {
+}: AberrationControlsProps) {
   const activePreset = useMemo(() => matchPreset(params), [params]);
 
-  const setParam = (key: MetalParamKey) => (value: number) => {
-    const spec = METAL_PARAMS[key];
+  const setParam = (key: AberrationParamKey) => (value: number) => {
+    const spec = ABERRATION_PARAMS[key];
     onChange({
       ...params,
       [key]: Math.min(Math.max(value, spec.min), spec.max),
@@ -130,19 +115,24 @@ export function MetalControls({
             Material
           </h3>
           <div className="grid gap-1">
-            {METAL_PRESET_LIST.map((preset) => (
+            {ABERRATION_PRESET_LIST.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
                 aria-pressed={activePreset === preset.id}
                 onClick={() => onPreset(preset.id)}
                 data-selected={activePreset === preset.id}
-                className="wafer-action-row wafer-metal-edge"
+                className="wafer-action-row wafer-dispersive"
               >
                 <span className="wafer-action-row__icon">
                   <span
                     aria-hidden="true"
-                    className="wafer-metal-chip size-4 rounded-full"
+                    className="size-3.5 rounded-full"
+                    style={{
+                      background: `conic-gradient(from -55deg, rgb(var(--spectral-azure)), rgb(var(--spectral-violet)) 20%, rgb(var(--spectral-coral)) 42%, rgb(var(--spectral-amber)) 58%, rgb(var(--spectral-violet)) 78%, rgb(var(--spectral-azure)))`,
+                      opacity:
+                        0.25 + ABERRATION_PRESETS[preset.id].dispersion * 0.35,
+                    }}
                   />
                 </span>
                 <span className="min-w-0">
@@ -158,19 +148,19 @@ export function MetalControls({
           </div>
           <p aria-live="polite" className="sr-only">
             {activePreset
-              ? `${activePreset} material active`
+              ? `${activePreset} preset active`
               : "Custom material settings"}
           </p>
         </section>
 
-        {METAL_GROUPS.map((group) => (
+        {ABERRATION_GROUPS.map((group) => (
           <section key={group.id} className="grid">
             <h3 className="border-b border-line-subtle pb-1.5 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-tertiary">
               {group.label}
             </h3>
             <div className="divide-y divide-line-subtle/60">
-              {METAL_PARAM_KEYS.filter(
-                (key) => METAL_PARAMS[key].group === group.id
+              {ABERRATION_PARAM_KEYS.filter(
+                (key) => ABERRATION_PARAMS[key].group === group.id
               ).map((key) => (
                 <SliderRow
                   key={key}
@@ -188,7 +178,7 @@ export function MetalControls({
         <button
           type="button"
           onClick={() => onPreset("alloy")}
-          className="wafer-button wafer-metal-edge flex-1"
+          className="wafer-button wafer-dispersive flex-1"
         >
           <RotateCcw aria-hidden="true" className="size-3.5" />
           Reset
@@ -197,7 +187,7 @@ export function MetalControls({
           <button
             type="button"
             onClick={onCopy}
-            className="wafer-button wafer-metal-edge flex-1"
+            className="wafer-button wafer-dispersive flex-1"
           >
             {copied ? (
               <Check aria-hidden="true" className="size-3.5" />

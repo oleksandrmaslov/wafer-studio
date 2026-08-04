@@ -2,11 +2,10 @@ import { useCallback, useState, type CSSProperties } from "react";
 import { Bluetooth, Layers, Search as SearchIcon, Sparkles } from "lucide-react";
 import { DispersionField } from "./DispersionField.tsx";
 import { useDispersionPulse } from "./dispersionContext.ts";
-import { MetalCanvas } from "./shader/MetalCanvas.tsx";
-import { MetalControls } from "./shader/MetalControls.tsx";
-import { MetalField } from "./shader/MetalField.tsx";
-import { useMetal } from "./shader/useMetal.ts";
-import { METAL_PRESETS } from "./shader/params.ts";
+import { AberrationCanvas } from "./shader/AberrationCanvas.tsx";
+import { AberrationControls } from "./shader/AberrationControls.tsx";
+import { useAberration } from "./shader/useAberration.ts";
+import { ABERRATION_PRESETS } from "./shader/params.ts";
 import { ActionRow } from "./ActionRow.tsx";
 import { SearchField } from "./SearchField.tsx";
 import { SegmentedControl } from "./SegmentedControl.tsx";
@@ -15,8 +14,9 @@ import { WAFER_FINISHES, useWaferFinish } from "../appearance.ts";
 /**
  * The design system reference.
  *
- * Everything accented on this page is made of the same material, published once
- * and sampled in viewport space. No control on it is highlighted with a colour.
+ * Everything on this page is lit by the same light as everything else on it —
+ * the shader, the specimen edges, and the inspector's own controls. That is the
+ * point of the page: you can watch the material and the interface agree.
  */
 
 const SUBSTRATE = [
@@ -27,11 +27,18 @@ const SUBSTRATE = [
   { token: "--surface-selected", label: "Selected" },
 ];
 
-const EDGE_STEPS = [
-  { value: "0", label: "Inert", use: "Resting chrome" },
-  { value: "var(--metal-edge-idle)", label: "Latent", use: "Available" },
-  { value: "var(--metal-edge-hover)", label: "Engaged", use: "Hover, focus" },
-  { value: "var(--metal-edge-active)", label: "Committed", use: "Selected" },
+const SPECTRUM = [
+  { token: "--spectral-azure", label: "Azure" },
+  { token: "--spectral-violet", label: "Violet" },
+  { token: "--spectral-coral", label: "Coral" },
+  { token: "--spectral-amber", label: "Amber" },
+];
+
+const DISPERSION_STEPS = [
+  { token: "--dispersion-inert", label: "Inert", use: "Resting chrome" },
+  { token: "--dispersion-latent", label: "Latent", use: "Hover" },
+  { token: "--dispersion-engaged", label: "Engaged", use: "Focus, open" },
+  { token: "--dispersion-committed", label: "Committed", use: "Selected, bound" },
 ];
 
 function Section({
@@ -64,7 +71,7 @@ function Specimens() {
     <div className="grid gap-8">
       <Section
         title="Substrate"
-        law="Achromatic. Value carries hierarchy and hue never touches a fill, because metal only reads as metal against neutral."
+        law="Achromatic. Value carries hierarchy; hue never touches a fill, because metal only reads as metal against neutral."
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {SUBSTRATE.map((swatch) => (
@@ -87,52 +94,39 @@ function Specimens() {
       </Section>
 
       <Section
-        title="Material"
-        law="There is no accent colour in this system. The reflection ramp is achromatic; the three colour channels sample it at three different positions, so a steep transition splits into spectrum and a flat region stays silver. Every hue you can see was produced, not chosen."
+        title="Spectrum"
+        law="The dispersion ramp, in the order light splits. Coral is not a separate brand colour. It is this ramp's warm sample, which is why the accent and the aberration never look like two systems."
       >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="grid gap-1.5">
-            <div className="wafer-metal h-20 rounded-surface" />
-            <span className="text-[0.6875rem] font-semibold text-ink">Raw</span>
-            <span className="text-[0.625rem] leading-snug text-tertiary">
-              Decorative only. Never put text on this.
-            </span>
-          </div>
-          <div className="grid gap-1.5">
-            <div className="wafer-metal-fill grid h-20 place-items-center rounded-surface text-xs font-bold">
-              Legible
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {SPECTRUM.map((swatch) => (
+            <div key={swatch.token} className="grid gap-1.5">
+              <div
+                className="h-14 rounded-surface"
+                style={{ background: `rgb(var(${swatch.token}))` }}
+              />
+              <div className="grid">
+                <span className="text-[0.6875rem] font-semibold text-ink">
+                  {swatch.label}
+                </span>
+                <span className="font-mono text-[0.5625rem] text-tertiary">
+                  {swatch.token}
+                </span>
+              </div>
             </div>
-            <span className="text-[0.6875rem] font-semibold text-ink">Fill</span>
-            <span className="text-[0.625rem] leading-snug text-tertiary">
-              Plated so ink always clears AA.
-            </span>
-          </div>
-          <div
-            className="wafer-metal-edge grid h-20 place-items-center rounded-surface border border-line-subtle bg-raised/60"
-            style={{ "--metal-edge": "1" } as CSSProperties}
-          >
-            <span className="text-[0.6875rem] font-semibold text-ink">Edge</span>
-          </div>
-          <div className="grid gap-1.5">
-            <div className="wafer-metal-chip h-20 rounded-surface" />
-            <span className="text-[0.6875rem] font-semibold text-ink">Chip</span>
-            <span className="text-[0.625rem] leading-snug text-tertiary">
-              Small sample, for swatches and slots.
-            </span>
-          </div>
+          ))}
         </div>
       </Section>
 
       <Section
-        title="Edge scale"
-        law="How live a control is decides how much material shows at its edge. Move your pointer across these: the material slides against the light, so no two sample the same part of it."
+        title="Dispersion scale"
+        law="The system's fourth axis, alongside colour, type, and space. An element sits on a step according to how live it is. Move your pointer across these tiles: each one samples the same light from its own position, so they never show the same hue at once."
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {EDGE_STEPS.map((step) => (
+          {DISPERSION_STEPS.map((step) => (
             <div
-              key={step.label}
-              className="wafer-metal-edge grid min-h-24 content-end gap-0.5 rounded-surface border border-line-subtle bg-raised/60 p-3"
-              style={{ "--metal-edge": step.value } as CSSProperties}
+              key={step.token}
+              className="wafer-dispersive grid min-h-24 content-end gap-0.5 rounded-surface border border-line-subtle bg-raised/60 p-3"
+              style={{ "--dispersion": `var(${step.token})` } as CSSProperties}
             >
               <span className="text-[0.6875rem] font-semibold text-ink">
                 {step.label}
@@ -145,7 +139,7 @@ function Specimens() {
 
       <Section
         title="Controls"
-        law="The material confirms state; it never carries it alone. Every selected, focused, and disabled state below stays legible with the effect switched off."
+        law="Dispersion confirms state; it never carries it alone. Every selected, focused, and disabled state below stays fully legible with the effect switched off."
       >
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="grid content-start gap-2">
@@ -165,13 +159,13 @@ function Specimens() {
               onChange={setDensity}
             />
             <div className="flex gap-2">
-              <button type="button" className="wafer-button wafer-metal-edge">
+              <button type="button" className="wafer-button wafer-dispersive">
                 Secondary
               </button>
               <button
                 type="button"
                 data-intent="primary"
-                className="wafer-button wafer-metal-fill"
+                className="wafer-button wafer-dispersive"
                 onClick={(event) => pulse(event)}
               >
                 <Sparkles aria-hidden="true" className="size-3.5" />
@@ -218,7 +212,7 @@ function Specimens() {
 
       <Section
         title="Keys"
-        law="The keyboard is the one genuinely physical object in the interface, and the only place a literal shadow is allowed. A selected key is ringed in the material."
+        law="The keyboard is the one genuinely physical object in the interface, and the only place a literal shadow is allowed. Everything else is light on a flat plane."
       >
         <div className="flex flex-wrap gap-1.5">
           {["Q", "W", "E", "R", "T", "⇧", "␣"].map((cap, index) => (
@@ -239,7 +233,7 @@ function Specimens() {
 }
 
 export function DesignSystemPage() {
-  const { params, setParams, applyPreset } = useMetal("alloy");
+  const { params, setParams, applyPreset } = useAberration("alloy");
   const [finish, setFinish] = useWaferFinish();
   const [copied, setCopied] = useState(false);
 
@@ -255,17 +249,14 @@ export function DesignSystemPage() {
 
   return (
     <DispersionField>
-      {/* Publishes the material to CSS. Renders nothing itself. */}
-      <MetalField params={params} />
-
       <div className="wafer-substrate grid h-full grid-rows-[auto_minmax(0,1fr)] bg-canvas">
         <header className="flex items-center justify-between gap-4 border-b border-line-subtle bg-panel/80 px-4 py-2.5">
           <div className="flex items-center gap-3">
-            {/* The mark keeps its own material: at 36px the tuning that suits a
-                full-bleed field reads as noise. */}
-            <span className="wafer-metal-edge wafer-mark-tile relative grid size-9 place-items-center overflow-hidden rounded-[22%]">
+            {/* The mark keeps its own material rather than the working values:
+                at 36px the tuning that suits a full-bleed field reads as noise. */}
+            <span className="wafer-dispersive wafer-mark-tile grid size-9 place-items-center overflow-hidden rounded-[22%]">
               <span className="absolute inset-0">
-                <MetalCanvas params={METAL_PRESETS.mark} shaped />
+                <AberrationCanvas params={ABERRATION_PRESETS.mark} />
               </span>
             </span>
             <span className="leading-none">
@@ -294,7 +285,7 @@ export function DesignSystemPage() {
           <main className="min-h-0 overflow-y-auto">
             <div className="relative isolate">
               <div className="absolute inset-0 -z-10">
-                <MetalCanvas params={params} />
+                <AberrationCanvas params={params} />
               </div>
               {/* Text contrast must never depend on a shader parameter, so the
                   copy sits on a scrim rather than on a blend mode. */}
@@ -303,17 +294,17 @@ export function DesignSystemPage() {
                 className="absolute inset-0 -z-10"
                 style={{
                   background:
-                    "linear-gradient(to top, rgb(var(--surface-canvas)) 4%, rgb(var(--surface-canvas) / 0.88) 40%, rgb(var(--surface-canvas) / 0.18) 78%, transparent)",
+                    "linear-gradient(to top, rgb(var(--surface-canvas)) 4%, rgb(var(--surface-canvas) / 0.86) 38%, rgb(var(--surface-canvas) / 0.15) 78%, transparent)",
                 }}
               />
               <div className="grid min-h-72 content-end gap-2 p-6 pt-28">
                 <h1 className="max-w-lg text-2xl font-bold leading-tight text-ink">
-                  Accent is a material, not a colour.
+                  Metallic aberration, as a law rather than a texture.
                 </h1>
                 <p className="max-w-prose text-xs leading-relaxed text-muted">
-                  One achromatic reflection ramp, sampled three times at three
-                  offsets. Steep transitions split into spectrum, flat regions
-                  stay silver. Nothing here is tinted.
+                  One light source for the whole interface. Distance from it sets
+                  brightness, bearing from it sets hue, and steepness decides
+                  whether any colour appears at all. Nothing here is a bevel.
                 </p>
               </div>
             </div>
@@ -324,7 +315,7 @@ export function DesignSystemPage() {
           </main>
 
           <aside className="min-h-0 border-line-subtle bg-panel/70 lg:border-l">
-            <MetalControls
+            <AberrationControls
               params={params}
               onChange={setParams}
               onPreset={applyPreset}
@@ -332,7 +323,7 @@ export function DesignSystemPage() {
               onCopy={onCopy}
               preview={
                 <div className="h-40 border-b border-line-subtle">
-                  <MetalCanvas params={params} />
+                  <AberrationCanvas params={params} />
                 </div>
               }
             />
