@@ -48,12 +48,29 @@
   initial-value: 0;
 }
 
+/* Whether the light is in the room at all.
+   The light used to ease back to its rest position when the pointer left the
+   window, which read as the light *travelling* across the interface on its own
+   — movement nobody asked for, drawing the eye to a window that had just been
+   abandoned. It now fades out where it stands and fades back in where the
+   pointer returns, so leaving the window is the light going out rather than the
+   light going somewhere. */
+@property --light-presence {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
 @layer base {
   :root {
     /* Rest position: high and slightly left. The canonical studio key light,
        and where the light returns when the pointer leaves. */
     --light-x: 0.28;
     --light-y: 0.06;
+    --light-presence: 1;
+    /* The fade itself. Registered as a <number>, so it interpolates — the
+       property is written as a bare 0 or 1 from JS and CSS does the easing. */
+    transition: --light-presence 280ms var(--motion-ease);
     --light-px: calc(var(--light-x) * 100vw);
     --light-py: calc(var(--light-y) * 100vh);
     --light-spread: 56vmax;
@@ -72,8 +89,8 @@
     /* Distance from the light decides brightness. */
     --wafer-light-field: radial-gradient(
       circle var(--light-spread) at var(--light-px) var(--light-py),
-      rgb(var(--light-specular) / 0.92),
-      rgb(var(--light-specular) / 0.32) 16%,
+      rgb(var(--light-specular) / calc(0.92 * var(--light-presence))),
+      rgb(var(--light-specular) / calc(0.32 * var(--light-presence))) 16%,
       rgb(var(--light-specular) / 0) 44%
     );
 
@@ -96,8 +113,8 @@
        fill, or the edges stop being the only place colour lives. */
     --wafer-specular-field: radial-gradient(
       circle var(--light-spread) at var(--light-px) var(--light-py),
-      rgb(var(--light-specular) / 0.06),
-      rgb(var(--light-specular) / 0.015) 30%,
+      rgb(var(--light-specular) / calc(0.06 * var(--light-presence))),
+      rgb(var(--light-specular) / calc(0.015 * var(--light-presence))) 30%,
       rgb(var(--light-specular) / 0) 60%
     );
   }
@@ -149,7 +166,11 @@
     background-image: var(--wafer-light-field), var(--wafer-spectrum-field);
     background-attachment: fixed, fixed;
     content: "";
-    opacity: clamp(0, calc(var(--dispersion) * var(--dispersion-gain)), 1);
+    opacity: clamp(
+      0,
+      calc(var(--dispersion) * var(--dispersion-gain) * var(--light-presence)),
+      1
+    );
     pointer-events: none;
     transition: opacity var(--motion-base) var(--motion-ease);
     -webkit-mask:
@@ -185,6 +206,49 @@
   .wafer-dispersive:disabled,
   .wafer-dispersive[aria-disabled="true"] {
     --dispersion: var(--dispersion-inert);
+  }
+
+  /* ---- Board-space light --------------------------------------------------
+     The keyboard is drawn inside a `transform: scale()`, and a transformed
+     ancestor breaks `background-attachment: fixed` — the gradient starts
+     resolving against the transformed box instead of the viewport, so a key's
+     ring becomes a local gradient that cannot see the cursor.
+
+     So the light is converted into the board's own coordinates instead.
+     `PhysicalLayout` publishes where the board sits and how far it is scaled;
+     these two numbers do the rest, and CSS recomputes them for free every time
+     the light moves. `at` positions are relative to each key's own box, hence
+     subtracting the key's origin within the board.
+
+     Defaults keep this harmless anywhere the board vars are absent. */
+  .wafer-key-field {
+    --light-bx: calc(
+      (var(--light-px) - var(--board-x, 0px)) / var(--board-scale, 1)
+    );
+    --light-by: calc(
+      (var(--light-py) - var(--board-y, 0px)) / var(--board-scale, 1)
+    );
+    --key-light-x: calc(var(--light-bx) - var(--kx, 0px));
+    --key-light-y: calc(var(--light-by) - var(--ky, 0px));
+
+    background-image:
+      radial-gradient(
+        circle calc(var(--light-spread) / var(--board-scale, 1)) at
+          var(--key-light-x) var(--key-light-y),
+        rgb(var(--light-specular) / calc(0.92 * var(--light-presence))),
+        rgb(var(--light-specular) / calc(0.32 * var(--light-presence))) 16%,
+        rgb(var(--light-specular) / 0) 44%
+      ),
+      conic-gradient(
+        from -55deg at var(--key-light-x) var(--key-light-y),
+        rgb(var(--spectral-cyan)),
+        rgb(var(--spectral-azure)) 16%,
+        rgb(var(--spectral-violet)) 36%,
+        rgb(var(--spectral-magenta)) 52%,
+        rgb(var(--spectral-violet)) 70%,
+        rgb(var(--spectral-azure)) 86%,
+        rgb(var(--spectral-cyan))
+      );
   }
 
   /* ---- Substrate ----------------------------------------------------------

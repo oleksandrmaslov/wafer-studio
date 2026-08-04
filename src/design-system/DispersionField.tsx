@@ -68,6 +68,23 @@ export function DispersionField({
     root.style.setProperty("--light-y", nextY);
   }, []);
 
+  /**
+   * Turn the light off where it stands, rather than walking it home.
+   *
+   * Easing back to the rest position when the pointer left the window meant the
+   * interface animated on its own after the user had already looked away —
+   * movement in an abandoned window, drawing the eye back to nothing. Fading
+   * `--light-presence` leaves the position untouched, so when the pointer
+   * returns the light comes back up wherever it re-enters instead of sliding
+   * across the screen to meet it.
+   */
+  const setPresence = useCallback((present: boolean) => {
+    document.documentElement.style.setProperty(
+      "--light-presence",
+      present ? "1" : "0",
+    );
+  }, []);
+
   // A single loop, started on demand and parked the moment the light settles.
   const run = useCallback(() => {
     if (frame.current !== null) return;
@@ -103,7 +120,7 @@ export function DispersionField({
       rate.current = nextRate;
       run();
     },
-    [run]
+    [run],
   );
 
   const controls = useMemo<DispersionControls>(
@@ -112,12 +129,12 @@ export function DispersionField({
         aim(
           clientX / Math.max(window.innerWidth, 1),
           clientY / Math.max(window.innerHeight, 1),
-          FOLLOW_RATE
+          FOLLOW_RATE,
         );
       },
       release: () => aim(REST_X, REST_Y, RETURN_RATE),
     }),
-    [aim]
+    [aim],
   );
 
   useEffect(() => {
@@ -133,6 +150,7 @@ export function DispersionField({
       current.current = { x: REST_X, y: REST_Y };
       target.current = { x: REST_X, y: REST_Y };
       write(REST_X, REST_Y);
+      setPresence(true);
     };
 
     if (!tracking()) {
@@ -146,19 +164,21 @@ export function DispersionField({
     }
 
     const onPointerMove = (event: PointerEvent) => {
+      setPresence(true);
       aim(
         event.clientX / Math.max(window.innerWidth, 1),
         event.clientY / Math.max(window.innerHeight, 1),
-        FOLLOW_RATE
+        FOLLOW_RATE,
       );
     };
 
-    // Leaving the document or the window returns the light to rest rather than
-    // freezing it wherever the pointer happened to exit.
+    // Leaving the document or the window puts the light out where it stands.
+    // relatedTarget === null means the pointer left the window entirely rather
+    // than merely crossing between two elements inside it.
     const onPointerOut = (event: PointerEvent) => {
-      if (event.relatedTarget === null) controls.release();
+      if (event.relatedTarget === null) setPresence(false);
     };
-    const onBlur = () => controls.release();
+    const onBlur = () => setPresence(false);
     const onPreferenceChange = () => {
       if (!tracking()) park();
     };
@@ -178,7 +198,7 @@ export function DispersionField({
         frame.current = null;
       }
     };
-  }, [aim, controls, enabled, write]);
+  }, [aim, controls, enabled, setPresence, write]);
 
   return (
     <DispersionContext.Provider value={controls}>

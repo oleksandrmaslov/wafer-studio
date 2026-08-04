@@ -253,6 +253,37 @@
     opacity: 0.42;
   }
 
+  /* ---- Floating surface -----------------------------------------------------
+     Panels sit *on* the substrate with air around them rather than being cut
+     into the window edge. Full-bleed panes divided the screen into strips and
+     made the app read as a set of adjoining regions; a floating card reads as
+     an object over a continuous ground, and the ground is the same lit surface
+     everywhere, so nothing has a hard seam.
+
+     The border is a hairline of the light rather than a line colour, which is
+     what stops the card from looking pasted on. */
+  .wafer-float {
+    position: relative;
+    border-radius: var(--radius-panel);
+    background-color: rgb(var(--surface-panel) / 0.72);
+    box-shadow:
+      inset 0 0 0 1px rgb(var(--light-specular) / 0.06),
+      0 1px 2px rgb(var(--light-shadow) / 0.16),
+      0 12px 32px -12px rgb(var(--light-shadow) / 0.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.15);
+    backdrop-filter: blur(12px) saturate(1.15);
+  }
+
+  /* Transparency is the effect, so when it is unwanted there is nothing to
+     soften — the card becomes an ordinary opaque panel. */
+  @media (prefers-reduced-transparency: reduce) {
+    .wafer-float {
+      background-color: rgb(var(--surface-panel));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
   /* ---- Accent surface -------------------------------------------------------
      The application's primary action fill, and the replacement for the chrome
      one that used to live in metal.css (now under `deprecated/`).
@@ -422,11 +453,41 @@
     box-shadow: var(--key-shadow-pressed);
   }
 
+  /* The selected key is the one place on the canvas where the spectrum earns
+     its keep. It used to take a flat `--wafer-primary` ring, which was coral
+     and became grey the moment the accent went achromatic — so selection lost
+     its only colour. It now wears the shared spectral edge at full commitment,
+     like every other committed element in the system, which means the selected
+     key on a Corne and the primary button in the header are lit by the same
+     source and land on different hues because they are in different places. */
   .wafer-key[data-selected="true"] {
-    border-color: rgb(var(--wafer-primary));
+    border-color: rgb(var(--light-specular) / 0.42);
     box-shadow:
-      0 0 0 2px rgb(var(--wafer-primary)),
+      0 0 0 2px rgb(var(--light-specular) / 0.28),
       var(--key-shadow);
+  }
+
+  /* Uses `.wafer-key-field` rather than the viewport-space fields: the board is
+     inside a transform, which breaks `background-attachment: fixed`. See the
+     board-space note in dispersion.css. */
+  .wafer-key[data-selected="true"]::before {
+    position: absolute;
+    z-index: 2;
+    inset: -2px;
+    padding: 2px;
+    border-radius: calc(var(--radius-key) + 1px);
+    content: "";
+    opacity: clamp(0, calc(var(--dispersion-gain) * var(--light-presence)), 1);
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
   }
 
   .wafer-key:focus-visible {

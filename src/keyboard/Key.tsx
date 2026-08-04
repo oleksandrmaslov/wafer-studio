@@ -49,7 +49,7 @@ export const Key = ({
   return (
     <button
       type="button"
-      className={`wafer-key @container group relative flex items-center justify-center ${
+      className={`wafer-key wafer-key-field @container group relative flex items-center justify-center ${
         onClick ? "cursor-pointer" : "cursor-default"
       }`}
       data-interactive={Boolean(onClick)}

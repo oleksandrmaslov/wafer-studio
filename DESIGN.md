@@ -187,7 +187,11 @@ These hold regardless of finish level.
   ancestor with a `transform`, `filter`, or `backdrop-filter`, that resolves
   against the ancestor's box instead, and the edge degrades to a local gradient.
   It still looks correct, it just stops being globally coherent, so avoid
-  transformed ancestors around dispersive edges.
+  transformed ancestors around dispersive edges. Where a transform is
+  unavoidable — the keyboard is inside `transform: scale()` — convert the light
+  into that element's own coordinate space instead: publish its offset and
+  scale, and let CSS do the subtraction. `.wafer-key-field` is the worked
+  example.
 - Writing `--light-x` on `:root` invalidates style for everything that reads it.
   This is inherent to one shared light. Writes are deduplicated at three decimal
   places and the loop parks when idle.

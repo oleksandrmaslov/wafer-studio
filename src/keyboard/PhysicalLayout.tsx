@@ -63,7 +63,11 @@ function scalePosition(
     transformOrigin,
     transform,
     transformStyle,
-  };
+    // The key's own origin inside the board, so its dispersive ring can place
+    // the shared light relative to itself. See the board-space note below.
+    "--kx": `${left}px`,
+    "--ky": `${top}px`,
+  } as CSSProperties;
 }
 
 export const PhysicalLayout = ({
@@ -124,6 +128,50 @@ export const PhysicalLayout = ({
       resizeObserver.disconnect();
     };
   }, [zoom]);
+
+  /**
+   * Publish where the board sits, so its keys can sample the shared light.
+   *
+   * The board is wrapped in `transform: scale()`, and inside a transformed
+   * ancestor `background-attachment: fixed` stops resolving against the
+   * viewport — it resolves against the transformed box instead. Every key's
+   * dispersive ring therefore became a *local* gradient that could not see the
+   * cursor: the same hue on every key, never changing as the light moved.
+   *
+   * Rather than give up the transform, the light is converted into the board's
+   * own coordinate space. These three numbers are all that conversion needs,
+   * and they change only when the board moves or rescales — never per frame —
+   * so the light itself keeps costing two root properties and no JavaScript.
+   */
+  useLayoutEffect(() => {
+    const element = layoutRef.current;
+    if (!element) return;
+
+    const publish = () => {
+      const rect = element.getBoundingClientRect();
+      element.style.setProperty("--board-x", `${rect.left}px`);
+      element.style.setProperty("--board-y", `${rect.top}px`);
+      element.style.setProperty("--board-scale", `${scale || 1}`);
+    };
+
+    publish();
+
+    const resizeObserver = new ResizeObserver(publish);
+    resizeObserver.observe(element);
+    // Scrolling the canvas moves the board without resizing it, and capture
+    // catches the scroller itself rather than only the window.
+    window.addEventListener("scroll", publish, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener("resize", publish, { passive: true });
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("scroll", publish, { capture: true });
+      window.removeEventListener("resize", publish);
+    };
+  }, [scale]);
 
   // TODO: Add a bit of padding for rotation when supported
   const rightMost = positions

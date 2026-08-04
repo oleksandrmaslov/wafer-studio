@@ -24,6 +24,7 @@ import type {
 } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
 
 import { LayerPicker } from "./LayerPicker";
+import { SelectField } from "../design-system/SelectField";
 import { PhysicalLayoutPicker } from "./PhysicalLayoutPicker";
 import { Keymap as KeymapComp } from "./Keymap";
 import { useConnectedDeviceData } from "../rpc/useConnectedDeviceData";
@@ -40,6 +41,7 @@ import {
   stepPosition,
   usageForCode,
 } from "./typeThrough";
+import { mirrorPosition, mirrorUsage } from "./mirror";
 
 import {
   validateBindingParameters,
@@ -51,7 +53,14 @@ import { LockStateContext } from "../rpc/LockStateContext";
 import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { deserializeLayoutZoom, LayoutZoom } from "./layoutZoom";
 import { useLocalStorageState } from "../misc/useLocalStorageState";
-import { Cable, Keyboard as Keyboard2, Maximize2, X } from "lucide-react";
+import {
+  Cable,
+  Copy,
+  FlipHorizontal,
+  Keyboard as Keyboard2,
+  Maximize2,
+  X,
+} from "lucide-react";
 import {
   bindingEquals,
   countDraftBindings,
@@ -64,6 +73,17 @@ import {
   rebaseDraftBindings,
   updateDraftBinding,
 } from "./keymapDraft";
+
+const ZOOM_OPTIONS = [
+  { id: "auto", label: "Fit" },
+  { id: "0.25", label: "25%" },
+  { id: "0.5", label: "50%" },
+  { id: "0.75", label: "75%" },
+  { id: "1", label: "100%" },
+  { id: "1.25", label: "125%" },
+  { id: "1.5", label: "150%" },
+  { id: "2", label: "200%" },
+];
 
 type BehaviorMap = Record<number, GetBehaviorDetailsResponse>;
 
@@ -677,6 +697,98 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
   const shelfOpen = selectedKeyPosition !== undefined && !!selectedBinding;
 
+  /**
+   * Copy every binding from another layer onto this one.
+   *
+   * Nobody builds a symbol or navigation layer from nothing — they start from
+   * the base layer and change the dozen keys that differ. Doing that by hand is
+   * forty-two round trips through the rail to reproduce a layer that already
+   * exists two rows above.
+   *
+   * The whole copy is one undo entry. Forty-two separate entries would mean
+   * forty-two presses of ⌘Z to take back a single mistaken click, which is not
+   * an undo history so much as a punishment.
+   */
+  const copyLayerFrom = useCallback(
+    (sourceLayerIndex: number) => {
+      if (!deviceKeymap || !keymap || isApplyingDraft) return;
+
+      const source = keymap.layers[sourceLayerIndex];
+      const target = keymap.layers[selectedLayerIndex];
+      if (!source || !target || source.id === target.id) return;
+
+      const layerId = target.id;
+      const restore = target.bindings.map((binding) => ({ ...binding }));
+      const incoming = source.bindings.slice(0, target.bindings.length);
+
+      const write = (bindings: BehaviorBinding[]) => {
+        setDraftBindings((current) =>
+          bindings.reduce(
+            (draft, binding, keyPosition) =>
+              updateDraftBinding(
+                deviceKeymap,
+                draft,
+                { layerId, keyPosition },
+                binding,
+              ),
+            current,
+          ),
+        );
+      };
+
+      void undoRedo?.(async () => {
+        write(incoming);
+        return async () => write(restore);
+      });
+    },
+    [deviceKeymap, isApplyingDraft, keymap, selectedLayerIndex, undoRedo],
+  );
+
+  /** The key opposite the selected one, when the board has one. */
+  const mirrorTarget = useMemo(() => {
+    const layout = layouts?.[selectedPhysicalLayoutIndex];
+    if (!layout || selectedKeyPosition === undefined) return undefined;
+    return mirrorPosition(layout, selectedKeyPosition);
+  }, [layouts, selectedPhysicalLayoutIndex, selectedKeyPosition]);
+
+  /**
+   * Put this key's binding on its opposite number, handedness flipped.
+   *
+   * Only parameters the behavior declares as HID usages are mirrored — a layer
+   * index or a Bluetooth profile number has no handedness, and running it
+   * through the modifier flip would corrupt it.
+   */
+  const mirrorSelectedKey = useCallback(() => {
+    if (!selectedBinding || mirrorTarget === undefined) return;
+
+    const behavior = behaviors[selectedBinding.behaviorId];
+    const layerIds = keymap?.layers.map(({ id }) => id) ?? [];
+    const set =
+      behavior?.metadata.find((candidate) =>
+        validateValue(layerIds, selectedBinding.param1, candidate.param1),
+      ) ?? behavior?.metadata[0];
+
+    const param1IsUsage = set?.param1?.some(
+      (value) => value.hidUsage !== undefined,
+    );
+    const param2IsUsage = set?.param2?.some(
+      (value) => value.hidUsage !== undefined,
+    );
+
+    doUpdateBinding(
+      {
+        ...selectedBinding,
+        param1: param1IsUsage
+          ? mirrorUsage(selectedBinding.param1)
+          : selectedBinding.param1,
+        param2: param2IsUsage
+          ? mirrorUsage(selectedBinding.param2)
+          : selectedBinding.param2,
+      },
+      mirrorTarget,
+    );
+  }, [behaviors, doUpdateBinding, keymap, mirrorTarget, selectedBinding]);
+
   // ---- Bulk apply ---------------------------------------------------------
   //
   // Setting home-row mods is eight keys that each have to become a mod-tap
@@ -1057,12 +1169,12 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     // that value has a history of dropping elements out of the accessibility
     // tree, and this is a landmark.
     <main
-      className={`grid min-h-0 min-w-0 grid-rows-[minmax(24rem,1fr)_auto] overflow-auto bg-base-300 xl:grid-rows-1 xl:overflow-hidden ${columns}`}
+      className={`wafer-substrate grid min-h-0 min-w-0 grid-rows-[minmax(24rem,1fr)_auto] gap-2 overflow-auto bg-base-300 p-2 xl:grid-rows-1 xl:overflow-hidden ${columns}`}
     >
       <aside
         aria-label="Keyboard setup"
         hidden={isTyping}
-        className="order-1 flex min-h-0 flex-col gap-4 overflow-y-auto border-line-subtle p-3 xl:order-none xl:col-start-1 xl:row-start-1 xl:border-r"
+        className="wafer-float order-1 flex min-h-0 flex-col gap-4 overflow-y-auto p-3 xl:order-none xl:col-start-1 xl:row-start-1"
       >
         {layouts && (
           <PhysicalLayoutPicker
@@ -1099,6 +1211,25 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           </p>
         )}
 
+        {keymap && keymap.layers.length > 1 && (
+          // `value={null}` on purpose: this is an action, not a setting, and
+          // leaving a layer name showing afterwards would imply the current
+          // layer is bound to that source from now on.
+          <SelectField
+            label="Copy from"
+            placeholder="Another layer…"
+            value={null}
+            isDisabled={isApplyingDraft}
+            options={keymap.layers
+              .map((layer, index) => ({
+                id: String(index),
+                label: layer.name || `Layer ${index}`,
+              }))
+              .filter((_, index) => index !== selectedLayerIndex)}
+            onChange={(id) => copyLayerFrom(Number(id))}
+          />
+        )}
+
         {canTypeThrough && (
           <button
             type="button"
@@ -1128,27 +1259,13 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           >
             <Maximize2 aria-hidden="true" className="size-4" />
           </button>
-          <label className="sr-only" htmlFor="keymap-zoom">
-            Keyboard zoom
-          </label>
-          <select
-            id="keymap-zoom"
-            className="min-h-9 rounded-control bg-transparent px-1 text-sm text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
-            value={keymapScale}
-            onChange={(e) => {
-              const value = deserializeLayoutZoom(e.target.value);
-              setKeymapScale(value);
-            }}
-          >
-            <option value="auto">Fit</option>
-            <option value={0.25}>25%</option>
-            <option value={0.5}>50%</option>
-            <option value={0.75}>75%</option>
-            <option value={1}>100%</option>
-            <option value={1.25}>125%</option>
-            <option value={1.5}>150%</option>
-            <option value={2}>200%</option>
-          </select>
+          <SelectField
+            label="Keyboard zoom"
+            hideLabel
+            value={String(keymapScale)}
+            options={ZOOM_OPTIONS}
+            onChange={(id) => setKeymapScale(deserializeLayoutZoom(id))}
+          />
         </div>
       </aside>
 
@@ -1157,7 +1274,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       <div className="relative order-none min-h-0 min-w-0 xl:col-start-2 xl:row-start-1">
         <section
           aria-label="Keyboard layout"
-          className="wafer-substrate grid h-full min-h-0 min-w-0 place-items-center overflow-auto p-4 md:p-6"
+          className="grid h-full min-h-0 min-w-0 place-items-center overflow-auto p-4 md:p-6"
         >
           {layouts && keymap && behaviors ? (
             <KeymapComp
@@ -1268,29 +1385,49 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       <aside
         aria-label="Key assignment"
         hidden={!shelfOpen || isTyping}
-        className="order-2 flex min-h-0 flex-col border-line-subtle xl:order-none xl:col-start-3 xl:row-start-1 xl:border-l"
+        className="wafer-float order-2 flex min-h-0 flex-col xl:order-none xl:col-start-3 xl:row-start-1"
       >
         {shelfOpen && (
           <>
-            <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-line-subtle px-3">
-              <div className="min-w-0">
-                <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
-                  {keymap?.layers[selectedLayerIndex]?.name ||
-                    `Layer ${selectedLayerIndex}`}
-                </p>
-                <h2 className="truncate font-semibold text-ink">
-                  Bind key {(selectedKeyPosition ?? 0) + 1}
-                </h2>
-                {selectedBindingDescription && (
-                  <p className="truncate text-xs text-muted">
-                    {selectedBindingDescription}
+            {/* Identity on one row, actions on their own.
+                These were all crammed into a single flex row, so in a 21rem
+                rail the title truncated to "Bin…" while two text buttons and a
+                close button fought over what was left. The title is the widest
+                thing here and the actions are the ones that must stay legible,
+                so they get a row each. */}
+            <header className="grid shrink-0 gap-2 border-b border-line-subtle px-3 py-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
+                    {keymap?.layers[selectedLayerIndex]?.name ||
+                      `Layer ${selectedLayerIndex}`}
                   </p>
-                )}
+                  <h2 className="truncate font-semibold text-ink">
+                    Bind key {(selectedKeyPosition ?? 0) + 1}
+                  </h2>
+                  {selectedBindingDescription && (
+                    <p className="truncate text-xs text-muted">
+                      {selectedBindingDescription}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
+                    K{String(selectedKeyPosition ?? 0).padStart(2, "0")}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Clear key selection"
+                    title="Clear selection (Esc)"
+                    onClick={() => setSelectedKeyPosition(undefined)}
+                    className="grid size-9 place-items-center rounded-control text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    <X aria-hidden="true" className="size-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
-                  K{String(selectedKeyPosition ?? 0).padStart(2, "0")}
-                </span>
+
+              <div className="flex flex-wrap items-center gap-1">
                 <button
                   type="button"
                   title="Apply this binding to other keys"
@@ -1302,19 +1439,27 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
                       label: selectedBindingDescription ?? "this binding",
                     })
                   }
-                  className="min-h-8 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+                  className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
                 >
+                  <Copy aria-hidden="true" className="size-3.5" />
                   Repeat on keys
                 </button>
-                <button
-                  type="button"
-                  aria-label="Clear key selection"
-                  title="Clear selection (Esc)"
-                  onClick={() => setSelectedKeyPosition(undefined)}
-                  className="grid size-10 place-items-center rounded-control text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  <X aria-hidden="true" className="size-4" />
-                </button>
+                {/* Only offered when the board actually has an opposite key.
+                    On an asymmetric layout, or a centre column, there is
+                    nothing to mirror onto and guessing would scribble on a key
+                    the user never looked at. */}
+                {mirrorTarget !== undefined && (
+                  <button
+                    type="button"
+                    title={`Copy to key ${mirrorTarget + 1}, swapping left and right modifiers`}
+                    onClick={mirrorSelectedKey}
+                    disabled={isApplyingDraft}
+                    className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40"
+                  >
+                    <FlipHorizontal aria-hidden="true" className="size-3.5" />
+                    Mirror
+                  </button>
+                )}
               </div>
             </header>
 

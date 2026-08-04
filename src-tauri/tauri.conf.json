@@ -6,7 +6,7 @@
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist/"
   },
-  "productName": "ZMK Studio",
+  "productName": "Wafer Studio",
   "mainBinaryName": "zmk-studio",
   "version": "0.3.1",
   "identifier": "dev.zmk.studio",
@@ -69,7 +69,7 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "title": "ZMK Studio",
+        "title": "Wafer Studio",
         "width": 800
       }
     ]

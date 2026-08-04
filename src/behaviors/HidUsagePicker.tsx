@@ -162,10 +162,14 @@ export const HidUsagePicker = ({
             <ChevronDown aria-hidden="true" className="size-4" />
           </Button>
         </div>
-        <Popover className="max-h-[min(28rem,var(--available-height))] w-[var(--trigger-width)] overflow-hidden rounded-xl border border-line bg-raised text-base-content shadow-xl outline-none">
+        {/* The popover is the scrollport. It used to clip with overflow-hidden
+            while the list inside carried its own max-height and scroll, which
+            lets the list end up taller than the box that is clipping it — a
+            menu whose last entries cannot be reached. */}
+        <Popover className="max-h-[min(28rem,var(--available-height))] w-[var(--trigger-width)] overflow-y-auto overflow-x-hidden rounded-xl border border-line bg-raised text-base-content shadow-xl outline-none">
           <ListBox
             items={usagePages}
-            className="block max-h-[min(26rem,var(--available-height))] min-h-[unset] overflow-auto p-2 outline-none"
+            className="block min-h-[unset] p-2 outline-none"
             selectionMode="single"
           >
             {({ id, min, max }) => <UsageSection id={id} min={min} max={max} />}

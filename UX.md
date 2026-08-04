@@ -260,8 +260,9 @@ base layer is thirty seconds of typing.
 Any feature that does not attack that number is decoration. Four that do,
 ordered by value per unit of work:
 
-> **Status:** 1 and 4 are built (`src/keyboard/typeThrough.ts`, and bulk apply
-> in `Keyboard.tsx`). 2 and 3 are not.
+> **Status:** 1, 3 and 4 are built (`src/keyboard/typeThrough.ts`,
+> `src/keyboard/mirror.ts`, and copy-from-layer plus bulk apply in
+> `Keyboard.tsx`). Starter layouts are not.
 
 ### 1. Type-through binding — the one that changes the product
 
@@ -290,24 +291,50 @@ Honest limit: it binds plain keycodes only. Layer-taps, mod-taps and anything
 with parameters still go through the rail. That is fine — plain keycodes are
 the overwhelming majority of any keymap.
 
-### 2. Starter layouts
+### 2. Starter layouts — alphas only
 
-Nobody designs a base layer from nothing. They start from QWERTY, Colemak,
-Colemak-DH, Dvorak, or Workman and change nine keys. "Apply starter layout" on
-a layer is one action that fills 30–40 bindings correctly.
+Nobody designs a base layer from nothing. They start from QWERTY, Colemak-DH,
+Graphite, Canary, Gallium, Workman or Dvorak and change nine keys.
 
-Client-side only: a table of keycodes per layout, mapped onto the physical
-layout by position. No protocol work.
+**Scope corrected by research — see `LAYOUTS.md`.** Whole layout *systems* of the
+Miryoku class are off the table, and not for UI reasons: they are built on home
+row mods whose behaviour is set by `tapping-term-ms`, `require-prior-idle-ms`,
+`flavor` and positional hold-tap, none of which the Studio protocol exposes.
+Writing those bindings would produce a keyboard that misfires with the remedy in
+a file we cannot touch.
+
+Swapping the alpha block is a different matter — plain key presses, no timing
+coupling, no firmware dependency. Identify the block by detecting a known layout
+in the current bindings and permuting positionally, and decline when nothing is
+recognised. That avoids guessing geometry on a board we have never seen.
 
 ### 3. Copy and mirror
 
-- **Duplicate layer** — build the symbol layer from the base layer instead of
-  from nothing.
-- **Copy layer from another layer**, and **mirror left half → right half** on a
-  split. Ortholinear splits are near-symmetric; binding one half and mirroring
-  is a genuine halving.
+**Copy from another layer — built.** Nobody builds a symbol layer from nothing;
+they start from the base and change the dozen keys that differ. "Copy from" in
+the left rail writes the whole source layer into the current one.
 
-All expressible as batches of `setLayerBinding`, all already possible.
+The detail that matters is that the entire copy is **one undo entry**. Forty-two
+separate entries would mean forty-two presses of ⌘Z to take back one mistaken
+click, which is not an undo history so much as a punishment. Verified against
+the real draft module: undo returns the draft to zero overrides rather than
+stacking inverse ones, and copying onto an identical layer records nothing.
+
+**Mirror — built, and deliberately per-key.** Mirroring a whole half is a
+feature that sounds useful and is almost never correct: the halves hold
+different letters, so copying one onto the other destroys the layer. What is
+actually symmetric is a handful of keys — home-row mods, thumb clusters, layer
+keys, the modifier row.
+
+And for those a copy is still wrong, because the mirror of Left Shift is Right
+Shift. Mirror flips modifier handedness in both places ZMK encodes it: as a
+usage in its own right (0xE0–0xE3 ↔ 0xE4–0xE7) and as the implicit modifier
+mask in the top byte. Parameters that are not usages — a layer index, a
+Bluetooth profile — are passed through untouched, since they have no handedness.
+
+The button appears only when the board has an opposite key. Verified on a
+synthetic 42-key split: all 42 positions form involutive pairs, and the centre
+key of an odd board correctly reports no twin.
 
 ### 4. Bulk apply — and why it has to *wrap*, not replace
 
