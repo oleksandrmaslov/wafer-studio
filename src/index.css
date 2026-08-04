@@ -297,6 +297,68 @@
     opacity: 0.42;
   }
 
+  /* ---- Accent surface -------------------------------------------------------
+     The application's primary action fill, and the replacement for the chrome
+     one that used to live in metal.css (now under `deprecated/`).
+
+     The fill stays achromatic, like every other fill in the system. What marks
+     it as primary is that it sits permanently at the top of the dispersion
+     scale: its edge carries full spectrum at rest, where every other control's
+     edge stays dark until you touch it. So "primary" is a position on the same
+     axis as hover and focus rather than a separate colour, and the whole ladder
+     remains one idea. */
+  .wafer-accent {
+    position: relative;
+    --dispersion: var(--dispersion-committed);
+    background-color: rgb(var(--surface-raised));
+    background-image: var(--wafer-specular-field);
+    background-attachment: fixed;
+    color: rgb(var(--ink-primary));
+    transition: background-color var(--motion-fast) var(--motion-ease);
+  }
+
+  .wafer-accent::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    padding: var(--hairline);
+    border-radius: inherit;
+    background-image: var(--wafer-light-field), var(--wafer-spectrum-field);
+    background-attachment: fixed, fixed;
+    content: "";
+    opacity: clamp(0, calc(var(--dispersion) * var(--dispersion-gain)), 1);
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-accent:hover:not(:disabled):not([data-disabled]) {
+      background-color: rgb(var(--surface-hover));
+    }
+  }
+
+  .wafer-accent:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  /* Disabled drops the material entirely. A greyed-out label inside a live
+     dispersive edge still reads as available. */
+  .wafer-accent:disabled,
+  .wafer-accent[data-disabled] {
+    --dispersion: var(--dispersion-inert);
+    background-image: none;
+    background-color: rgb(var(--surface-hover));
+    color: rgb(var(--ink-tertiary));
+  }
+
   /* ---- Slider ---------------------------------------------------------------
      The filled portion of the track is a window onto the shared spectrum field,
      so a row of sliders reads as one continuous material rather than as

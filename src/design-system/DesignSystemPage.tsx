@@ -1,11 +1,7 @@
-import { useCallback, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { Bluetooth, Layers, Search as SearchIcon, Sparkles } from "lucide-react";
 import { DispersionField } from "./DispersionField.tsx";
 import { useDispersionPulse } from "./dispersionContext.ts";
-import { AberrationCanvas } from "./shader/AberrationCanvas.tsx";
-import { AberrationControls } from "./shader/AberrationControls.tsx";
-import { useAberration } from "./shader/useAberration.ts";
-import { ABERRATION_PRESETS } from "./shader/params.ts";
 import { ActionRow } from "./ActionRow.tsx";
 import { SearchField } from "./SearchField.tsx";
 import { SegmentedControl } from "./SegmentedControl.tsx";
@@ -14,9 +10,14 @@ import { WAFER_FINISHES, useWaferFinish } from "../appearance.ts";
 /**
  * The design system reference.
  *
- * Everything on this page is lit by the same light as everything else on it —
- * the shader, the specimen edges, and the inspector's own controls. That is the
- * point of the page: you can watch the material and the interface agree.
+ * Everything on this page is lit by the same light — the mark, the section
+ * rules, the swatch edges and every control. That is the point of the page: one
+ * gradient in viewport space, and every edge a window onto it, so you can watch
+ * the whole interface disperse as a single surface rather than as a thousand
+ * separately-styled parts.
+ *
+ * There is no material inspector any more, and no canvas. The WebGL metal and
+ * aberration shaders this page used to demonstrate now live in `deprecated/`.
  */
 
 const SUBSTRATE = [
@@ -28,14 +29,14 @@ const SUBSTRATE = [
 ];
 
 const SPECTRUM = [
+  { token: "--spectral-cyan", label: "Cyan" },
   { token: "--spectral-azure", label: "Azure" },
   { token: "--spectral-violet", label: "Violet" },
-  { token: "--spectral-coral", label: "Coral" },
-  { token: "--spectral-amber", label: "Amber" },
+  { token: "--spectral-magenta", label: "Magenta" },
 ];
 
 const DISPERSION_STEPS = [
-  { token: "--dispersion-inert", label: "Inert", use: "Resting chrome" },
+  { token: "--dispersion-inert", label: "Inert", use: "At rest" },
   { token: "--dispersion-latent", label: "Latent", use: "Hover" },
   { token: "--dispersion-engaged", label: "Engaged", use: "Focus, open" },
   { token: "--dispersion-committed", label: "Committed", use: "Selected, bound" },
@@ -51,8 +52,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-3 border-t border-line-subtle pt-6">
-      <div className="grid gap-1">
+    // Every divider on the page is a slice of the same spectrum field, so
+    // scrolling reads as moving down one continuous surface rather than past a
+    // stack of unrelated rules.
+    <section className="grid gap-3">
+      <hr aria-hidden="true" className="wafer-rule" />
+      <div className="grid gap-1 pt-3">
         <h2 className="text-sm font-bold tracking-wide text-ink">{title}</h2>
         <p className="max-w-prose text-xs leading-relaxed text-muted">{law}</p>
       </div>
@@ -71,14 +76,19 @@ function Specimens() {
     <div className="grid gap-8">
       <Section
         title="Substrate"
-        law="Achromatic. Value carries hierarchy; hue never touches a fill, because metal only reads as metal against neutral."
+        law="Achromatic. Value carries hierarchy; hue never touches a fill, because split light only reads as split light against neutral."
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {SUBSTRATE.map((swatch) => (
             <div key={swatch.token} className="grid gap-1.5">
               <div
-                className="h-14 rounded-surface border border-line-subtle"
-                style={{ background: `rgb(var(${swatch.token}))` }}
+                className="wafer-dispersive h-14 rounded-surface border border-line-subtle"
+                style={
+                  {
+                    background: `rgb(var(${swatch.token}))`,
+                    "--dispersion": "var(--dispersion-latent)",
+                  } as CSSProperties
+                }
               />
               <div className="grid">
                 <span className="text-[0.6875rem] font-semibold text-ink">
@@ -95,14 +105,19 @@ function Specimens() {
 
       <Section
         title="Spectrum"
-        law="The dispersion ramp, in the order light splits. Coral is not a separate brand colour. It is this ramp's warm sample, which is why the accent and the aberration never look like two systems."
+        law="The dispersion ramp, in the order light splits — and deliberately the cool half of the spread only. A warm stop in a one-pixel edge stops reading as dispersion and starts reading as a glow, which is why there is no orange in it."
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {SPECTRUM.map((swatch) => (
             <div key={swatch.token} className="grid gap-1.5">
               <div
-                className="h-14 rounded-surface"
-                style={{ background: `rgb(var(${swatch.token}))` }}
+                className="wafer-dispersive h-14 rounded-surface"
+                style={
+                  {
+                    background: `rgb(var(${swatch.token}))`,
+                    "--dispersion": "var(--dispersion-committed)",
+                  } as CSSProperties
+                }
               />
               <div className="grid">
                 <span className="text-[0.6875rem] font-semibold text-ink">
@@ -233,32 +248,24 @@ function Specimens() {
 }
 
 export function DesignSystemPage() {
-  const { params, setParams, applyPreset } = useAberration("alloy");
   const [finish, setFinish] = useWaferFinish();
-  const [copied, setCopied] = useState(false);
-
-  const onCopy = useCallback(() => {
-    void navigator.clipboard
-      ?.writeText(JSON.stringify(params, null, 2))
-      .then(() => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1600);
-      })
-      .catch(() => setCopied(false));
-  }, [params]);
 
   return (
     <DispersionField>
       <div className="wafer-substrate grid h-full grid-rows-[auto_minmax(0,1fr)] bg-canvas">
         <header className="flex items-center justify-between gap-4 border-b border-line-subtle bg-panel/80 px-4 py-2.5">
           <div className="flex items-center gap-3">
-            {/* The mark keeps its own material rather than the working values:
-                at 36px the tuning that suits a full-bleed field reads as noise. */}
-            <span className="wafer-dispersive wafer-mark-tile grid size-9 place-items-center overflow-hidden rounded-[22%]">
-              <span className="absolute inset-0">
-                <AberrationCanvas params={ABERRATION_PRESETS.mark} />
-              </span>
-            </span>
+            {/* The mark is the system's proof: an achromatic tile catching the
+                same light as everything else, wearing the same spectral ring at
+                full commitment. It is not a logo with an effect on it. */}
+            <span
+              aria-hidden="true"
+              className="wafer-dispersive wafer-mark-tile block size-9 rounded-[22%] bg-raised"
+              style={{
+                backgroundImage: "var(--wafer-light-field)",
+                backgroundAttachment: "fixed",
+              }}
+            />
             <span className="leading-none">
               <span className="block text-sm font-extrabold tracking-[0.14em] text-ink">
                 WAFER
@@ -281,54 +288,38 @@ export function DesignSystemPage() {
           </div>
         </header>
 
-        <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <main className="min-h-0 overflow-y-auto">
-            <div className="relative isolate">
-              <div className="absolute inset-0 -z-10">
-                <AberrationCanvas params={params} />
-              </div>
-              {/* Text contrast must never depend on a shader parameter, so the
-                  copy sits on a scrim rather than on a blend mode. */}
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 -z-10"
-                style={{
-                  background:
-                    "linear-gradient(to top, rgb(var(--surface-canvas)) 4%, rgb(var(--surface-canvas) / 0.86) 38%, rgb(var(--surface-canvas) / 0.15) 78%, transparent)",
-                }}
-              />
-              <div className="grid min-h-72 content-end gap-2 p-6 pt-28">
-                <h1 className="max-w-lg text-2xl font-bold leading-tight text-ink">
-                  Metallic aberration, as a law rather than a texture.
-                </h1>
-                <p className="max-w-prose text-xs leading-relaxed text-muted">
-                  One light source for the whole interface. Distance from it sets
-                  brightness, bearing from it sets hue, and steepness decides
-                  whether any colour appears at all. Nothing here is a bevel.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-8 p-6">
-              <Specimens />
-            </div>
-          </main>
-
-          <aside className="min-h-0 border-line-subtle bg-panel/70 lg:border-l">
-            <AberrationControls
-              params={params}
-              onChange={setParams}
-              onPreset={applyPreset}
-              copied={copied}
-              onCopy={onCopy}
-              preview={
-                <div className="h-40 border-b border-line-subtle">
-                  <AberrationCanvas params={params} />
-                </div>
-              }
+        <main className="min-h-0 overflow-y-auto">
+          <div className="relative">
+            {/* Achromatic, and painted in viewport space like every other
+                specular surface here, so the hero is lit by the same source as
+                the controls further down rather than carrying its own art. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 -z-10"
+              style={{
+                backgroundImage: "var(--wafer-light-field)",
+                backgroundAttachment: "fixed",
+                opacity: 0.12,
+              }}
             />
-          </aside>
-        </div>
+            <div className="grid min-h-64 content-end gap-2 p-6 pt-24">
+              <h1 className="max-w-lg text-2xl font-bold leading-tight text-ink">
+                Dispersion, as a law rather than a texture.
+              </h1>
+              <p className="max-w-prose text-xs leading-relaxed text-muted">
+                One light source for the whole interface. Distance from it sets
+                brightness, bearing from it sets hue, and how live an element is
+                decides how much of that hue reaches its edge. Nothing here is a
+                bevel, and nothing here is a shader — it is one gradient, and
+                every edge on the page is a window onto it.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-8 p-6 pt-0">
+            <Specimens />
+          </div>
+        </main>
       </div>
     </DispersionField>
   );

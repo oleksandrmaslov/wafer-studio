@@ -1,12 +1,12 @@
 /*
  * Wafer design system — foundations
  *
- * The Wafer mark is a chrome glyph on a neutral tile: the surface itself carries
- * no hue, and colour only appears where the form turns away from the light and
- * splits it. This file encodes that as a system rather than as a texture.
+ * One light, one spectrum. Surfaces carry no hue at all; colour appears only
+ * where an edge turns away from the light and splits it. This file encodes that
+ * as a system rather than as a texture.
  *
- *   Substrate  achromatic. Value only, never hue. Metal reads as metal only
- *              against neutral, so no surface token carries a colour cast.
+ *   Substrate  achromatic. Value only, never hue. Split light only reads as
+ *              split light against neutral, so no surface token carries a cast.
  *   Spectrum   the dispersion ramp. It exists at edges, never as a fill.
  *   Dispersion an intensity axis, like a type scale. Elements sit at a step on
  *              it according to how live they are, not according to decoration.
@@ -19,7 +19,7 @@
   :root {
     /* ---- Substrate (light) ------------------------------------------------
        Cool neutral paper. Deliberately achromatic: a warm cast would tint the
-       specular highlight and the metal would stop reading as metal. */
+       specular highlight and the spectrum would stop reading as split light. */
     --surface-canvas: 236 238 240; /* #ECEEF0 */
     --surface-panel: 246 247 249; /* #F6F7F9 */
     --surface-raised: 255 255 255; /* #FFFFFF */
@@ -36,14 +36,18 @@
     --line-strong: 160 166 173; /* #A0A6AD */
 
     /* ---- Spectrum ---------------------------------------------------------
-       Sampled from the mark's dispersed edge. The order is the order light
-       splits in: azure, violet, coral, amber. `--wafer-primary` is not a
-       separate brand colour — it is the coral sample of this same ramp, which
-       is why accent and dispersion never look like two different systems. */
+       The dispersion ramp: cyan, azure, violet, magenta. Deliberately the cool
+       half of the spread only — a warm stop in a 1px edge does not read as
+       dispersion, it reads as a glow, and it drags every dispersive edge on the
+       page toward looking like a highlight rather than like split light.
+
+       Note this ramp no longer contains the accent. `--wafer-primary` below is
+       warm and is used by the application shell, so it is now a genuinely
+       separate colour rather than a sample of this ramp. */
+    --spectral-cyan: 34 205 232; /* #22CDE8 */
     --spectral-azure: 64 190 245; /* #40BEF5 */
     --spectral-violet: 149 104 240; /* #9568F0 */
-    --spectral-coral: 255 106 61; /* #FF6A3D */
-    --spectral-amber: 240 166 74; /* #F0A64A */
+    --spectral-magenta: 226 82 196; /* #E252C4 */
 
     --wafer-primary: 255 106 61; /* #FF6A3D */
     /* Accent hover. Deliberately not `--wafer-deep`: darkening the fill drops
@@ -54,13 +58,13 @@
     /* Dark ink on coral, not white. White on #FF6A3D is 2.9:1 and fails AA. */
     --primary-content: 38 12 4; /* #260C04, 5.8:1 on the accent */
 
-    /* ---- Metal ------------------------------------------------------------
-       The two ends of the specular range. Everything metallic is built from
-       these plus the spectrum; there are no per-component chrome gradients. */
-    /* The metal's value range. On light paper the dark end has to be genuinely
-       dark or the surface has nowhere to go but white. */
-    --metal-specular: 255 255 255;
-    --metal-shadow: 88 95 103;
+    /* ---- Light ------------------------------------------------------------
+       The two ends of the specular range. Every lit edge and every sheen is
+       built from these plus the spectrum; there are no per-component gradients.
+       On light paper the dark end has to be genuinely dark, or the surface has
+       nowhere to go but white. */
+    --light-specular: 255 255 255;
+    --light-shadow: 88 95 103;
 
     /* ---- Status -----------------------------------------------------------
        Status colours sit outside the spectrum on purpose. Meaning must never
@@ -88,7 +92,7 @@
     --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
     /* ---- Elevation --------------------------------------------------------- */
-    --elevation-panel: 0 1px 2px rgb(var(--metal-shadow) / 0.08);
+    --elevation-panel: 0 1px 2px rgb(var(--light-shadow) / 0.08);
     --elevation-popover: 0 8px 24px rgb(16 18 20 / 0.12);
     --elevation-modal: 0 24px 64px rgb(16 18 20 / 0.2);
     --key-shadow: 0 1px 0 rgb(var(--line-strong) / 0.55),
@@ -118,10 +122,10 @@
       --line-strong: 84 89 95; /* #54595F */
 
       /* Dispersion on black needs more chroma headroom to survive at 1px. */
+      --spectral-cyan: 94 234 250; /* #5EEAFA */
       --spectral-azure: 90 214 255; /* #5AD6FF */
       --spectral-violet: 173 128 255; /* #AD80FF */
-      --spectral-coral: 255 122 92; /* #FF7A5C */
-      --spectral-amber: 255 186 102; /* #FFBA66 */
+      --spectral-magenta: 255 128 224; /* #FF80E0 */
 
       --wafer-primary: 255 122 92; /* #FF7A5C */
       /* On dark, the accent brightens on hover rather than deepening, which
@@ -131,8 +135,8 @@
       --accent-foreground: 255 158 127; /* #FF9E7F, 8.4:1 on panel */
       --primary-content: 20 16 14;
 
-      --metal-specular: 246 250 252;
-      --metal-shadow: 6 8 10;
+      --light-specular: 246 250 252;
+      --light-shadow: 6 8 10;
 
       --status-success: 106 200 156; /* #6AC89C */
       --status-warning: 232 173 90; /* #E8AD5A */

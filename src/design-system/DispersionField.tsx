@@ -8,7 +8,7 @@ import {
  * The light source the whole interface shares.
  *
  * This component owns exactly two numbers — where the light is — and publishes
- * them to `<html>` as `--light-x` / `--light-y`. Every metallic edge in the
+ * them to `<html>` as `--light-x` / `--light-y`. Every dispersive edge in the
  * application reads those two numbers out of the same viewport-space gradient,
  * so the interface disperses as one surface instead of as a thousand
  * independently-shaded controls.

@@ -3,7 +3,7 @@
  *
  * The whole application shares ONE light source.
  *
- * Every metallic edge in the interface paints its gradient in *viewport* space
+ * Every dispersive edge in the interface paints its gradient in *viewport* space
  * (`background-attachment: fixed`), so each element samples the same global
  * field at its own position. Nothing is composed per-component: an element near
  * the light gets a white specular edge, an element far from it falls into the
@@ -72,30 +72,33 @@
     /* Distance from the light decides brightness. */
     --wafer-light-field: radial-gradient(
       circle var(--light-spread) at var(--light-px) var(--light-py),
-      rgb(var(--metal-specular) / 0.92),
-      rgb(var(--metal-specular) / 0.32) 16%,
-      rgb(var(--metal-specular) / 0) 44%
+      rgb(var(--light-specular) / 0.92),
+      rgb(var(--light-specular) / 0.32) 16%,
+      rgb(var(--light-specular) / 0) 44%
     );
 
     /* Bearing from the light decides hue. Start and end match so the ramp is
-       continuous the whole way round. */
+       continuous the whole way round, and the sweep runs out to magenta and
+       back rather than through a warm stop — cyan, azure, violet, magenta,
+       violet, azure, cyan. */
     --wafer-spectrum-field: conic-gradient(
       from -55deg at var(--light-px) var(--light-py),
-      rgb(var(--spectral-azure)),
-      rgb(var(--spectral-violet)) 20%,
-      rgb(var(--spectral-coral)) 42%,
-      rgb(var(--spectral-amber)) 58%,
-      rgb(var(--spectral-violet)) 78%,
-      rgb(var(--spectral-azure))
+      rgb(var(--spectral-cyan)),
+      rgb(var(--spectral-azure)) 16%,
+      rgb(var(--spectral-violet)) 36%,
+      rgb(var(--spectral-magenta)) 52%,
+      rgb(var(--spectral-violet)) 70%,
+      rgb(var(--spectral-azure)) 86%,
+      rgb(var(--spectral-cyan))
     );
 
     /* Achromatic sheen for large surfaces. Value only — no hue ever reaches a
-       fill, or the substrate stops reading as metal. */
+       fill, or the edges stop being the only place colour lives. */
     --wafer-specular-field: radial-gradient(
       circle var(--light-spread) at var(--light-px) var(--light-py),
-      rgb(var(--metal-specular) / 0.06),
-      rgb(var(--metal-specular) / 0.015) 30%,
-      rgb(var(--metal-specular) / 0) 60%
+      rgb(var(--light-specular) / 0.06),
+      rgb(var(--light-specular) / 0.015) 30%,
+      rgb(var(--light-specular) / 0) 60%
     );
   }
 
@@ -131,7 +134,7 @@
 @layer components {
   /* ---- The dispersive edge -----------------------------------------------
      A one-pixel ring cut from the shared field. This is the system's signature
-     and the only place hue is allowed to touch chrome. */
+     and the only place hue is allowed to touch a surface. */
   .wafer-dispersive {
     position: relative;
     --dispersion: var(--dispersion-inert);
@@ -184,10 +187,9 @@
     --dispersion: var(--dispersion-inert);
   }
 
-  /* ---- Metallic substrate -------------------------------------------------
-     Large surfaces catch the same light achromatically. This is what makes the
-     canvas feel like a milled panel rather than a flat div, without a single
-     bevel. */
+  /* ---- Substrate ----------------------------------------------------------
+     Large surfaces catch the same light achromatically. This is what gives the
+     canvas depth rather than leaving it a flat div, without a single bevel. */
   .wafer-substrate {
     background-image: var(--wafer-specular-field);
     background-attachment: fixed;

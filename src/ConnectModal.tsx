@@ -202,7 +202,7 @@ function DeviceList({
           <ListBoxItem
             id={device.id}
             aria-label={[device.label, transport.label].join(", ")}
-            className="group grid min-h-16 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-line bg-raised/65 px-4 py-3 outline-none transition hover:-translate-y-0.5 hover:border-wafer hover:shadow-[0_8px_24px_rgb(var(--metal-shadow)/0.28)] focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 rac-selected:border-wafer rac-selected:bg-selected"
+            className="group grid min-h-16 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-line bg-raised/65 px-4 py-3 outline-none transition hover:-translate-y-0.5 hover:border-wafer hover:shadow-[0_8px_24px_rgb(var(--light-shadow)/0.28)] focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 rac-selected:border-wafer rac-selected:bg-selected"
           >
             <span className="grid size-9 place-items-center rounded-xl bg-canvas text-muted">
               {transport.isWireless ? (
@@ -299,7 +299,7 @@ function SimpleDevicePicker({ transports, onTransportCreated }: PickerProps) {
                 aria-busy={isConnecting}
                 disabled={connectingLabel !== null}
                 onClick={() => void connectTransport(transport)}
-                className="group flex min-h-28 w-full flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-raised/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-wafer hover:shadow-[0_10px_28px_rgb(var(--metal-shadow)/0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                className="group flex min-h-28 w-full flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-raised/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-wafer hover:shadow-[0_10px_28px_rgb(var(--light-shadow)/0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
               >
                 <span className="flex w-full items-center justify-between gap-3">
                   <TransportBadge wireless={transport.isWireless} />
@@ -451,7 +451,7 @@ export const ConnectModal = ({
             <button
               type="button"
               onClick={onExploreDemo}
-              className="relative mt-4 flex min-h-12 w-full items-center justify-center gap-3 rounded-xl wafer-metal px-5 py-3 text-sm font-black shadow-[0_8px_20px_rgb(var(--wafer-primary)/0.18)] transition hover:shadow-[0_10px_26px_rgb(var(--wafer-primary)/0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 active:translate-y-px"
+              className="relative mt-4 flex min-h-12 w-full items-center justify-center gap-3 rounded-xl wafer-accent px-5 py-3 text-sm font-black shadow-[0_8px_20px_rgb(var(--wafer-primary)/0.18)] transition hover:shadow-[0_10px_26px_rgb(var(--wafer-primary)/0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 active:translate-y-px"
             >
               Explore demo keyboard
               <span aria-hidden="true">→</span>

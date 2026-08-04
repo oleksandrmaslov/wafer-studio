@@ -71,7 +71,7 @@ export const UnlockModal = () => {
             <li className="grid grid-cols-[2rem_1fr] gap-3">
               <span
                 aria-hidden="true"
-                className="grid size-8 place-items-center wafer-metal rounded-full text-xs font-black"
+                className="grid size-8 place-items-center wafer-accent rounded-full text-xs font-black"
               >
                 1
               </span>
@@ -87,7 +87,7 @@ export const UnlockModal = () => {
             <li className="grid grid-cols-[2rem_1fr] gap-3">
               <span
                 aria-hidden="true"
-                className="grid size-8 place-items-center wafer-metal rounded-full text-xs font-black"
+                className="grid size-8 place-items-center wafer-accent rounded-full text-xs font-black"
               >
                 2
               </span>

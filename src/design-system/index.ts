@@ -15,18 +15,3 @@ export {
   useDispersionPulse,
   type DispersionControls,
 } from "./dispersionContext.ts";
-
-export { AberrationCanvas } from "./shader/AberrationCanvas.tsx";
-export { AberrationControls } from "./shader/AberrationControls.tsx";
-export { useAberration } from "./shader/useAberration.ts";
-export {
-  ABERRATION_PARAMS,
-  ABERRATION_PARAM_KEYS,
-  ABERRATION_PRESETS,
-  ABERRATION_PRESET_LIST,
-  clampParams,
-  matchPreset,
-  type AberrationParamKey,
-  type AberrationParams,
-  type AberrationPresetId,
-} from "./shader/params.ts";

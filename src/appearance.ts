@@ -5,8 +5,7 @@ import { useCallback, useEffect, useState } from "react";
  *
  * Every level disperses, because dispersion is the base of the design system
  * rather than a decoration layered on top of it. What changes between them is
- * how loudly: `--dispersion-gain` and `--specular-gain` scale the whole field,
- * and the shader presets of the same name move in step.
+ * how loudly: `--dispersion-gain` and `--specular-gain` scale the whole field.
  */
 export const WAFER_FINISHES = [
   {
@@ -17,7 +16,7 @@ export const WAFER_FINISHES = [
   {
     id: "alloy",
     label: "Alloy",
-    description: "The reference material. Balanced metal and spectrum.",
+    description: "The reference amplitude. Balanced light and spectrum.",
   },
   {
     id: "prism",

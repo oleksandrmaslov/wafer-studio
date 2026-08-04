@@ -91,7 +91,7 @@ export function VisualHidUsagePicker({
             type="button"
             disabled={value === undefined}
             onClick={() => setExpanded(false)}
-            className="min-h-11 rounded-xl wafer-metal px-4 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
+            className="min-h-11 rounded-xl wafer-accent px-4 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-base-300 disabled:text-base-content/35 focus-visible:ring-2 focus-visible:ring-focus"
           >
             Done
           </button>

@@ -26,3 +26,6 @@ src/data
 *.sw?
 
 *storybook.log
+
+# Superseded material effects, kept locally for reference only.
+/deprecated/

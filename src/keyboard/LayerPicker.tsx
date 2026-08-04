@@ -102,7 +102,7 @@ const EditLabelModal = ({
           Cancel
         </button>
         <button
-          className="min-h-10 rounded-[var(--radius-control)] wafer-metal px-4 text-sm font-semibold transition-colors"
+          className="min-h-10 rounded-[var(--radius-control)] wafer-accent px-4 text-sm font-semibold transition-colors"
           type="button"
           onClick={() => {
             handleSave();
