@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { RpcTransport } from "@zmkfirmware/zmk-studio-ts-client/transport/index";
 import { UserCancelledError } from "@zmkfirmware/zmk-studio-ts-client/transport/errors";
-import { Bluetooth, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bluetooth, Download, RefreshCw, Usb } from "lucide-react";
 import { Key, ListBox, ListBoxItem, Selection } from "react-aria-components";
 
 import { GenericModal } from "./GenericModal";
@@ -60,16 +60,109 @@ function InlineError({ message }: { message: string | null }) {
   );
 }
 
-function TransportBadge({ wireless }: { wireless?: boolean }) {
-  return wireless ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised/70 px-2 py-1 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-muted">
-      <Bluetooth aria-hidden="true" className="size-3.5" />
-      Wireless
-    </span>
-  ) : (
-    <span className="inline-flex rounded-full border border-line bg-raised/70 px-2 py-1 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-muted">
-      USB
-    </span>
+/**
+ * The two ways a keyboard can be reached, as a fixed pair.
+ *
+ * Both are always drawn, whether or not this build can use them. Rendering only
+ * the transports that happen to work meant a browser showed a single "USB" card
+ * and nothing else — so the fact that Bluetooth *exists at all* was information
+ * you could only get by already knowing it. An unavailable card that says why,
+ * and offers the thing that would make it work, is the whole point.
+ */
+const CONNECTION_KINDS = [
+  {
+    id: "USB",
+    label: "USB",
+    icon: Usb,
+    blurb: "The most reliable way to edit and test your keymap.",
+    /** Shown in place of the blurb when this build cannot offer it. */
+    unavailable: "Needs a current Chrome or Edge browser.",
+  },
+  {
+    id: "BLE",
+    label: "Bluetooth",
+    icon: Bluetooth,
+    blurb: "Pair without a cable.",
+    unavailable:
+      "Browsers only expose Web Bluetooth for this on Linux. The desktop app has it everywhere.",
+  },
+] as const;
+
+function ConnectionCard({
+  kind,
+  transport,
+  isBusy,
+  isDisabled,
+  onChoose,
+}: {
+  kind: (typeof CONNECTION_KINDS)[number];
+  transport?: TransportFactory;
+  isBusy: boolean;
+  isDisabled: boolean;
+  onChoose: () => void;
+}) {
+  const Icon = kind.icon;
+
+  if (!transport) {
+    return (
+      <div className="flex min-h-40 flex-col justify-between gap-3 rounded-2xl border border-dashed border-line bg-canvas/60 p-4">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-line bg-raised/50 px-2 py-1 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-tertiary">
+          <Icon aria-hidden="true" className="size-3.5" />
+          {kind.label}
+        </span>
+        <span>
+          <span className="block font-bold text-muted">Not available here</span>
+          <span className="mt-1 block text-xs leading-4 text-tertiary">
+            {kind.unavailable}
+          </span>
+        </span>
+        {/* The card is inert, but the way out of it is not. This is the only
+            place someone learns the desktop app exists at the moment they
+            have a reason to want it. */}
+        <a
+          href={`${import.meta.env.BASE_URL}download.html`}
+          className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-xl border border-line bg-raised/70 px-3 text-xs font-bold !text-ink no-underline transition hover:border-wafer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <Download aria-hidden="true" className="size-3.5" />
+          Get the desktop app
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-busy={isBusy}
+      disabled={isDisabled}
+      onClick={onChoose}
+      className="group flex min-h-40 w-full flex-col items-start justify-between gap-3 rounded-2xl border border-line bg-raised/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-wafer hover:shadow-[0_10px_28px_rgb(var(--light-shadow)/0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+    >
+      <span className="flex w-full items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised/70 px-2 py-1 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-muted">
+          <Icon aria-hidden="true" className="size-3.5" />
+          {kind.label}
+        </span>
+        <span
+          aria-hidden="true"
+          className="text-lg text-accent-foreground transition-transform group-hover:translate-x-0.5"
+        >
+          →
+        </span>
+      </span>
+      <span>
+        <span className="block font-bold text-ink">
+          {isBusy
+            ? "Waiting for approval…"
+            : transport.pick_and_connect
+              ? `Browse ${kind.label} keyboards`
+              : `Connect over ${kind.label}`}
+        </span>
+        <span className="mt-1 block text-xs leading-4 text-muted">
+          {kind.blurb}
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -245,9 +338,21 @@ function DeviceList({
   );
 }
 
-function SimpleDevicePicker({ transports, onTransportCreated }: PickerProps) {
+function ConnectionKindPicker({
+  transports,
+  onTransportCreated,
+  open,
+}: PickerProps & { open: boolean }) {
   const [connectingLabel, setConnectingLabel] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState<TransportFactory | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Reopening the dialog after a failed connection should not drop you back
+  // into the device list of whatever you tried last.
+  useEffect(() => {
+    setBrowsing(null);
+    setError(null);
+  }, [open]);
 
   const connectTransport = useCallback(
     async (transport: TransportFactory) => {
@@ -273,54 +378,64 @@ function SimpleDevicePicker({ transports, onTransportCreated }: PickerProps) {
     [onTransportCreated],
   );
 
+  // A transport that lists devices first (desktop) drills into the scan list;
+  // one that connects straight through (the browser's own picker) does not.
+  const choose = useCallback(
+    (transport: TransportFactory) => {
+      setError(null);
+      if (transport.pick_and_connect) {
+        setBrowsing(transport);
+        return;
+      }
+      void connectTransport(transport);
+    },
+    [connectTransport],
+  );
+
+  if (browsing) {
+    return (
+      <section aria-labelledby="connection-method-heading">
+        <button
+          type="button"
+          onClick={() => setBrowsing(null)}
+          className="mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl px-2 text-xs font-bold text-muted transition hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <ArrowLeft aria-hidden="true" className="size-3.5" />
+          All connections
+        </button>
+        <DeviceList
+          open
+          transports={[browsing]}
+          onTransportCreated={onTransportCreated}
+        />
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="connection-method-heading">
       <h2 id="connection-method-heading" className="text-sm font-bold">
         Choose how to connect
       </h2>
       <p className="mt-1 text-sm leading-5 text-muted">
-        Your browser will ask you to approve a keyboard for this session.
+        You approve a specific keyboard for this session. Nothing is scanned
+        until you pick one.
       </p>
-      <ul
-        className={[
-          "mt-4 grid gap-3",
-          transports.length > 1 && "sm:grid-cols-2",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        {transports.map((transport) => {
-          const isConnecting = connectingLabel === transport.label;
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {CONNECTION_KINDS.map((kind) => {
+          const transport = transports.find(
+            (candidate) => candidate.label === kind.id,
+          );
 
           return (
-            <li key={transport.label}>
-              <button
-                type="button"
-                aria-busy={isConnecting}
-                disabled={connectingLabel !== null}
-                onClick={() => void connectTransport(transport)}
-                className="group flex min-h-28 w-full flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-raised/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-wafer hover:shadow-[0_10px_28px_rgb(var(--light-shadow)/0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
-              >
-                <span className="flex w-full items-center justify-between gap-3">
-                  <TransportBadge wireless={transport.isWireless} />
-                  <span
-                    aria-hidden="true"
-                    className="text-lg text-accent-foreground transition-transform group-hover:translate-x-0.5"
-                  >
-                    →
-                  </span>
-                </span>
-                <span>
-                  <span className="block font-bold text-ink">
-                    {isConnecting ? "Waiting for approval…" : transport.label}
-                  </span>
-                  <span className="mt-1 block text-xs leading-4 text-muted">
-                    {transport.isWireless
-                      ? "Pair without a cable when your platform supports it."
-                      : "The most reliable way to edit and test your keymap."}
-                  </span>
-                </span>
-              </button>
+            <li key={kind.id}>
+              <ConnectionCard
+                kind={kind}
+                transport={transport}
+                isBusy={connectingLabel === kind.id}
+                isDisabled={connectingLabel !== null}
+                onChoose={() => transport && choose(transport)}
+              />
             </li>
           );
         })}
@@ -364,23 +479,22 @@ function NoTransportsOptionsPrompt() {
   );
 }
 
+/**
+ * One entry point for every build.
+ *
+ * This used to fork: a browser got a grid of transport buttons, desktop got a
+ * flat scan list of everything within range. Two different first screens for
+ * the same question, and the desktop one skipped straight past the choice of
+ * *how* to connect — so a BLE keyboard and a USB one arrived in the same
+ * undifferentiated list. Now both start from the same pair of cards.
+ */
 function ConnectOptions({
   transports,
   onTransportCreated,
   open,
 }: PickerProps & { open: boolean }) {
-  const useSimplePicker = useMemo(
-    () => transports.every((transport) => !transport.pick_and_connect),
-    [transports],
-  );
-
-  return useSimplePicker ? (
-    <SimpleDevicePicker
-      transports={transports}
-      onTransportCreated={onTransportCreated}
-    />
-  ) : (
-    <DeviceList
+  return (
+    <ConnectionKindPicker
       open={open}
       transports={transports}
       onTransportCreated={onTransportCreated}

@@ -47,6 +47,56 @@
     background: rgb(var(--wafer-primary) / 0.28);
     color: rgb(var(--ink-primary));
   }
+
+  /* ---- Scrollbars -----------------------------------------------------------
+     The platform's own scrollbar is the last piece of foreign chrome in the
+     application. On Windows it is a wide opaque trough with stepper arrows,
+     drawn in the OS palette rather than this one — a light-grey slab down the
+     side of a dark panel, which is exactly how it looked in the picker.
+
+     So: no track, no arrows, and a thumb that is a rounded bar of the same
+     line colour every border here uses. The transparent border with
+     `background-clip: content-box` is what insets the thumb from the edge —
+     `::-webkit-scrollbar-thumb` has no margin, so padding it is the only way
+     to get air around it.
+
+     Both syntaxes are needed and they are not interchangeable: Firefox and
+     recent Chromium honour the standard `scrollbar-*` properties (which cannot
+     express the inset), while WebKit and Blink honour the pseudo-elements. The
+     standard properties are stated first so the fallback is already correct,
+     and the pseudo-elements refine it where they apply. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong) / 0.7) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: rgb(var(--line-strong) / 0.55);
+    background-clip: content-box;
+    transition: background-color var(--motion-base) var(--motion-ease);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--line-strong) / 0.85);
+  }
+
+  /* Steppers are a Windows-only affordance nothing else in this interface has
+     an equivalent of, and they are what made the bar look pasted on. */
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
 }
 
 #root {
@@ -55,6 +105,23 @@
 }
 
 @layer components {
+  /* A scroller with no visible bar at all.
+     For short strips that scroll sideways — the section chips in the key
+     picker — where even a hairline bar is a second horizontal rule under a
+     single row of controls, and the content is self-evidently draggable. The
+     element still scrolls by wheel, trackpad, touch and keyboard; only the
+     indicator is gone. Do not put this on anything tall, where the bar is the
+     only clue that there is more below. */
+  .wafer-scroll-bare {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .wafer-scroll-bare::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
   /* ---- Surfaces ---------------------------------------------------------- */
   .wafer-finish-panel {
     background-color: rgb(var(--surface-panel));

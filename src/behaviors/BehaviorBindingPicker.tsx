@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   BehaviorParameterValueDescription,
@@ -91,24 +91,38 @@ const ACTION_GROUPS: readonly {
   { id: "other", label: "Other actions", shortLabel: "Other" },
 ];
 
+/** Stable DOM ids, so the jump bar and the sections cannot drift apart. */
+const SECTION_IDS = {
+  keys: "wafer-picker-keys",
+  media: "wafer-picker-media",
+  multi: "wafer-picker-multi",
+} as const;
+
 /**
- * One collapsible block in the picker.
+ * One block in the picker. Open by default; collapsible if you want it gone.
  *
- * The tab strip this replaced hid nine tenths of the catalogue behind a guess
- * about which bucket a thing was in. Expanding every group instead solved that
- * and created a list too long to scroll. Collapsed groups are the middle: the
- * default view is a short menu of about ten headings you can read at a glance,
- * and opening one costs a single click.
+ * This has now been three designs. A tab strip hid nine tenths of the catalogue
+ * behind a guess about which bucket a thing was in. Expanding everything fixed
+ * that and produced a list too long to scroll. Collapsing everything by default
+ * fixed *that* and quietly recreated the first problem — ten shut headings is a
+ * tab strip drawn vertically, and the reported symptom was the same one:
+ * "a lot of features are hidden, and for anybody who doesn't know, it's not on
+ * the screen."
  *
- * Search forces every group open, so typing never has to fight the collapse.
+ * So: everything is open, and the length problem is solved by *navigation*
+ * rather than by concealment — see the jump bar in the panel below. Collapsing
+ * stays available, because a user who never wants Lighting should be able to
+ * fold it away; it is just no longer the default state of the whole panel.
  */
 function PickerGroup({
+  id,
   label,
   count,
-  defaultOpen = false,
+  defaultOpen = true,
   forceOpen = false,
   children,
 }: {
+  id: string;
   label: string;
   count: number;
   defaultOpen?: boolean;
@@ -119,7 +133,9 @@ function PickerGroup({
   const isOpen = forceOpen || open;
 
   return (
-    <section aria-label={label}>
+    // `scroll-mt` so a jump lands with the heading below the sticky bar rather
+    // than underneath it.
+    <section id={id} aria-label={label} className="scroll-mt-12">
       <h3>
         <button
           type="button"
@@ -139,6 +155,58 @@ function PickerGroup({
       </h3>
       {isOpen && <div className="pb-1 pt-0.5">{children}</div>}
     </section>
+  );
+}
+
+/**
+ * The jump bar: every section in the panel, always on screen.
+ *
+ * This is not the tab strip that was removed. A tab strip *replaces* the view
+ * with one bucket, so everything else stops existing; this scrolls to a heading
+ * in a list that is entirely present either way. The distinction matters
+ * because the failure mode of the tab strip was people not finding things that
+ * were behind a tab they did not guess — here there is nothing to guess, the
+ * counts are visible, and scrolling past everything still works.
+ */
+function JumpBar({
+  sections,
+}: {
+  sections: readonly { id: string; label: string; count: number }[];
+}) {
+  if (sections.length < 2) return null;
+
+  return (
+    <nav
+      aria-label="Jump to a section"
+      // `wafer-scroll-bare`: a scrollbar under a single row of chips is a
+      // second horizontal rule where a border already is, and on Windows it
+      // was a full-width platform-grey slab sitting on the first section
+      // heading. The chips are visibly cut off when they overflow, which is
+      // the cue; the bar was only ever noise.
+      // `bg-panel` at full alpha, matching the rail exactly — see the note on
+      // the assignment aside in `Keyboard.tsx`. No `backdrop-blur`: blurring
+      // here would sample the parent's own fill and tint the strip, which is
+      // the artefact this is fixing rather than a way to fix it.
+      className="wafer-scroll-bare sticky top-0 z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-line-subtle bg-panel px-3 pb-2 pt-1.5"
+    >
+      {sections.map((section) => (
+        <button
+          key={section.id}
+          type="button"
+          onClick={() =>
+            document
+              .getElementById(section.id)
+              ?.scrollIntoView({ block: "start", behavior: "smooth" })
+          }
+          className="wafer-dispersive flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-line-subtle px-2.5 text-[0.6875rem] font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          {section.label}
+          <span className="font-mono text-[0.625rem] tabular-nums text-tertiary">
+            {section.count}
+          </span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -420,7 +488,36 @@ export const BehaviorBindingPicker = ({
         ),
     [behaviors],
   );
+  /**
+   * Close the editor when the binding changes *underneath* us.
+   *
+   * The guard is the whole point. Everything in this panel applies live, so the
+   * moment you pick a parameterised behavior — Bluetooth, layer-tap, anything
+   * with a second choice to make — it is published, comes straight back as a
+   * new `binding` prop, and an unguarded reset here slammed the editor shut on
+   * the click that opened it. The behavior was bound, so nothing looked broken;
+   * it was simply impossible to reach the parameters, which is the report that
+   * "menus with settings like Bluetooth close after selection despite being
+   * configurable".
+   *
+   * Echoes of our own writes are therefore ignored, and a binding that arrives
+   * from anywhere else — undo, a bulk paint, retargeting onto another key —
+   * still closes the editor, because that one really is about a different key.
+   */
+  const publishedRef = useRef<BehaviorBinding | null>(null);
+
   useEffect(() => {
+    const mine = publishedRef.current;
+    if (
+      mine &&
+      mine.behaviorId === binding.behaviorId &&
+      mine.param1 === binding.param1 &&
+      mine.param2 === binding.param2
+    ) {
+      return;
+    }
+
+    publishedRef.current = null;
     setEditor(null);
   }, [binding.behaviorId, binding.param1, binding.param2]);
 
@@ -551,11 +648,16 @@ export const BehaviorBindingPicker = ({
     ) {
       return;
     }
-    onBindingChanged({
+    const published = {
       behaviorId: next.behaviorId,
       param1: next.param1 ?? 0,
       param2: next.param2 ?? 0,
-    });
+    };
+
+    // Recorded before the call, because a synchronous parent can hand the new
+    // binding back before this function has returned.
+    publishedRef.current = published;
+    onBindingChanged(published);
   };
 
   const chooseBehavior = (behavior: GetBehaviorDetailsResponse) => {
@@ -607,6 +709,53 @@ export const BehaviorBindingPicker = ({
   const filteredMulti = multiBehaviors.filter((behavior) =>
     behaviorMatchesQuery(behavior, search),
   );
+
+  /**
+   * What the jump bar lists, in the order the panel renders.
+   *
+   * Built from the same conditions the sections themselves use, so a section
+   * that is not drawn cannot appear as a chip pointing at nothing — which is
+   * the one way a navigation bar is worse than no navigation bar.
+   */
+  const sections: { id: string; label: string; count: number }[] = [];
+
+  if (keyPressBehavior && (!search || matchingKeyboardCount > 0)) {
+    sections.push({
+      id: SECTION_IDS.keys,
+      label: "Keys",
+      count: matchingKeyboardCount,
+    });
+  }
+  if (
+    keyPressBehavior &&
+    consumerCatalog.length > 0 &&
+    (!search || matchingConsumerCount > 0)
+  ) {
+    sections.push({
+      id: SECTION_IDS.media,
+      label: "Media & system",
+      count: matchingConsumerCount,
+    });
+  }
+  if (filteredMulti.length > 0) {
+    sections.push({
+      id: SECTION_IDS.multi,
+      label: "Tap and hold",
+      count: filteredMulti.length,
+    });
+  }
+  for (const { id, label, shortLabel } of ACTION_GROUPS) {
+    const count = filteredActions.filter(
+      (behavior) => actionPresentation(behavior).group === id,
+    ).length;
+    if (count > 0) {
+      sections.push({
+        id: `wafer-actions-${id}`,
+        label: shortLabel ?? label,
+        count,
+      });
+    }
+  }
 
   const editorName = editorBehavior
     ? normalizeName(editorBehavior.displayName)
@@ -696,8 +845,13 @@ export const BehaviorBindingPicker = ({
             placeholder="Search keys and actions…"
           />
 
-          {/* Keys first: it is what the overwhelming majority of bindings are,
-              so it should not be behind a tab.
+          <JumpBar sections={sections} />
+
+          {/* Keys first: it is what the overwhelming majority of bindings are.
+              Media & system follows it rather than sitting above it — putting
+              the smaller, rarer group first was a way of compensating for it
+              being collapsed, and once nothing is collapsed the compensation
+              is just a wrong reading order.
 
               The grid carries its own search box, which put two search fields
               one above the other in a rail this narrow. It is driven by the
@@ -705,43 +859,11 @@ export const BehaviorBindingPicker = ({
               together, which is what a single box in a single list implies. */}
           {keyPressBehavior ? (
             <>
-              {/* Above the keys grid, not below it. The grid is open by
-                  default and a hundred buttons tall, so a heading placed after
-                  it is only nominally on the page — you have to scroll the
-                  whole alphabet to learn the group exists. One collapsed row
-                  costs the primary path nothing and puts volume, brightness
-                  and the browser keys a single click from the top. */}
-              {consumerCatalog.length > 0 &&
-                (!search || matchingConsumerCount > 0) && (
-                  <PickerGroup
-                    label="Media & system"
-                    count={matchingConsumerCount}
-                    forceOpen={Boolean(search)}
-                  >
-                    <HidUsageGrid
-                      value={selectedKeyUsage}
-                      items={consumerCatalog}
-                      categoryIds={HID_CONSUMER_ACTION_CATEGORY_IDS}
-                      disabled={isDisabled}
-                      onValueChange={chooseKeyUsage}
-                      ariaLabel="Choose a media, system, or browser control"
-                      emptyMessage="No matching media or system controls."
-                      showSearch={false}
-                      /* A consumer usage carries no implicit modifier — Ctrl +
-                         Volume Up is not a thing the report can express — and
-                         the keys grid below already owns the one chord panel
-                         this rail should have. */
-                      showModifiers={false}
-                      searchValue={search}
-                    />
-                  </PickerGroup>
-                )}
-
               {(!search || matchingKeyboardCount > 0) && (
                 <PickerGroup
+                  id={SECTION_IDS.keys}
                   label="Keys"
                   count={matchingKeyboardCount}
-                  defaultOpen
                   forceOpen={Boolean(search)}
                 >
                   <HidUsageGrid
@@ -776,6 +898,33 @@ export const BehaviorBindingPicker = ({
                   )}
                 </PickerGroup>
               )}
+
+              {consumerCatalog.length > 0 &&
+                (!search || matchingConsumerCount > 0) && (
+                  <PickerGroup
+                    id={SECTION_IDS.media}
+                    label="Media & system"
+                    count={matchingConsumerCount}
+                    forceOpen={Boolean(search)}
+                  >
+                    <HidUsageGrid
+                      value={selectedKeyUsage}
+                      items={consumerCatalog}
+                      categoryIds={HID_CONSUMER_ACTION_CATEGORY_IDS}
+                      disabled={isDisabled}
+                      onValueChange={chooseKeyUsage}
+                      ariaLabel="Choose a media, system, or browser control"
+                      emptyMessage="No matching media or system controls."
+                      showSearch={false}
+                      /* A consumer usage carries no implicit modifier — Ctrl +
+                         Volume Up is not a thing the report can express — and
+                         the keys grid above already owns the one chord panel
+                         this rail should have. */
+                      showModifiers={false}
+                      searchValue={search}
+                    />
+                  </PickerGroup>
+                )}
             </>
           ) : (
             <p className="rounded-xl border border-line bg-base-100 p-4 text-sm text-base-content/60">
@@ -785,6 +934,7 @@ export const BehaviorBindingPicker = ({
 
           {filteredMulti.length > 0 && (
             <PickerGroup
+              id={SECTION_IDS.multi}
               label="Tap and hold"
               count={filteredMulti.length}
               forceOpen={Boolean(search)}
@@ -812,6 +962,7 @@ export const BehaviorBindingPicker = ({
             return (
               <PickerGroup
                 key={id}
+                id={`wafer-actions-${id}`}
                 label={label}
                 count={groupBehaviors.length}
                 forceOpen={Boolean(search)}

@@ -1704,26 +1704,36 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           than as "Navi…". Horizontal chips truncated every name past about six
           characters, which made the picker useless for exactly the layers
           people bother to name. */}
-      <aside
-        aria-label="Layers"
-        hidden={isTyping}
-        className="wafer-float order-1 flex min-h-0 flex-col p-3 xl:order-none xl:col-start-1 xl:row-start-1"
-      >
-        {keymap && (
-          <LayerPicker
-            layers={keymap.layers}
-            selectedLayerIndex={selectedLayerIndex}
-            onLayerClicked={setSelectedLayerIndex}
-            onLayerMoved={moveLayer}
-            canAdd={(keymap.availableLayers || 0) > 0}
-            canRemove={(keymap.layers?.length || 0) > 1}
-            isStructureDisabled={structureLocked}
-            onAddClicked={addLayer}
-            onRemoveClicked={removeLayer}
-            onLayerNameChanged={changeLayerName}
-          />
-        )}
-      </aside>
+      {/* Unmounted while typing, not hidden with the `hidden` attribute.
+          `hidden` is a UA rule (`[hidden] { display: none }`) and every author
+          style beats it — including the `flex` in this very class list. So the
+          rail stayed on screen through the whole mode, and because the grid had
+          dropped to one column by then, it landed in an implicit track and
+          squeezed the board it was supposed to be getting out of the way of.
+          Two traps from §4 of AGENTS.md firing at once. Not rendering it is
+          unambiguous, and it keeps the template and its children changing
+          together. */}
+      {!isTyping && (
+        <aside
+          aria-label="Layers"
+          className="wafer-float order-1 flex min-h-0 flex-col p-3 xl:order-none xl:col-start-1 xl:row-start-1"
+        >
+          {keymap && (
+            <LayerPicker
+              layers={keymap.layers}
+              selectedLayerIndex={selectedLayerIndex}
+              onLayerClicked={setSelectedLayerIndex}
+              onLayerMoved={moveLayer}
+              canAdd={(keymap.availableLayers || 0) > 0}
+              canRemove={(keymap.layers?.length || 0) > 1}
+              isStructureDisabled={structureLocked}
+              onAddClicked={addLayer}
+              onRemoveClicked={removeLayer}
+              onLayerNameChanged={changeLayerName}
+            />
+          )}
+        </aside>
+      )}
 
       {/* The canvas catches the application's shared light rather than a
           fixed white glow, which was a bright blob in dark mode. */}
@@ -2010,123 +2020,140 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
         )}
       </div>
 
-      <aside
-        aria-label="Key assignment"
-        hidden={!shelfOpen || isTyping}
-        className="wafer-float order-2 flex min-h-0 flex-col xl:order-none xl:col-start-3 xl:row-start-1"
-      >
-        {/* Below `xl` this is a card in a stacked, page-scrolling layout, so
+      {/* Same reason as the layers rail: `hidden` lost to the `flex` beside
+          it, so the key panel stayed up during type-through — the one mode
+          whose entire point is that nothing but the board is on screen. */}
+      {shelfOpen && !isTyping && (
+        <aside
+          aria-label="Key assignment"
+          // Opaque, unlike the other floats, and deliberately.
+          //
+          // `.wafer-float` paints `--surface-panel` at 0.72 over whatever is
+          // behind it. That is fine for a card with nothing pinned inside it, but
+          // this one has a sticky section bar, and a sticky child *must* be
+          // opaque or the list scrolls visibly through it. A 0.95 child over a
+          // 0.72 parent composites to ~0.99 — which is why the bar read as a
+          // lighter band across the panel. Same token at the same alpha on both
+          // is the only way the seam actually disappears.
+          //
+          // The float's hairline and shadow are untouched, so it still reads as
+          // a card; it is only the transparency that goes, exactly as it does
+          // under `prefers-reduced-transparency`.
+          className="wafer-float order-2 flex min-h-0 flex-col bg-panel xl:order-none xl:col-start-3 xl:row-start-1"
+        >
+          {/* Below `xl` this is a card in a stacked, page-scrolling layout, so
             the catalogue is laid out at its natural height and the page
             scrolls. It used to keep the rail's `flex-1` scroller here, where
             there is no bounded height to flex against — the catalogue resolved
             to a few pixels and the panel rendered as an empty sliver with a
             scrollbar in it. That is the "broken key menu" on a narrow window. */}
-        {shelfOpen && (
-          <>
-            {/* Identity on one row, actions on their own.
+          {
+            <>
+              {/* Identity on one row, actions on their own.
                 These were all crammed into a single flex row, so in a 21rem
                 rail the title truncated to "Bin…" while two text buttons and a
                 close button fought over what was left. The title is the widest
                 thing here and the actions are the ones that must stay legible,
                 so they get a row each. */}
-            <header className="grid shrink-0 gap-2 border-b border-line-subtle px-3 py-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
-                    {keymap?.layers[selectedLayerIndex]?.name ||
-                      `Layer ${selectedLayerIndex}`}
-                  </p>
-                  <h2 className="truncate font-semibold text-ink">
-                    {selectedPositions.size > 1
-                      ? `Bind ${selectedPositions.size} keys`
-                      : `Bind key ${(selectedKeyPosition ?? 0) + 1}`}
-                  </h2>
-                  {selectedPositions.size > 1 ? (
-                    <p className="truncate text-xs text-muted">
-                      Applies to every selected key. Hold-taps keep each key's
-                      own letter as the tap.
+              <header className="grid shrink-0 gap-2 border-b border-line-subtle px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
+                      {keymap?.layers[selectedLayerIndex]?.name ||
+                        `Layer ${selectedLayerIndex}`}
                     </p>
-                  ) : (
-                    selectedBindingDescription && (
+                    <h2 className="truncate font-semibold text-ink">
+                      {selectedPositions.size > 1
+                        ? `Bind ${selectedPositions.size} keys`
+                        : `Bind key ${(selectedKeyPosition ?? 0) + 1}`}
+                    </h2>
+                    {selectedPositions.size > 1 ? (
                       <p className="truncate text-xs text-muted">
-                        {selectedBindingDescription}
+                        Applies to every selected key. Hold-taps keep each key's
+                        own letter as the tap.
                       </p>
-                    )
-                  )}
+                    ) : (
+                      selectedBindingDescription && (
+                        <p className="truncate text-xs text-muted">
+                          {selectedBindingDescription}
+                        </p>
+                      )
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
+                      K{String(selectedKeyPosition ?? 0).padStart(2, "0")}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Clear key selection"
+                      title="Clear selection (Esc)"
+                      onClick={() => {
+                        setSelectedKeyPosition(undefined);
+                        setSelection(new Set());
+                      }}
+                      className="grid size-9 place-items-center rounded-control text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+                    >
+                      <X aria-hidden="true" className="size-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <span className="rounded-full border border-line-subtle px-2 py-1 font-mono text-[0.6875rem] text-muted">
-                    K{String(selectedKeyPosition ?? 0).padStart(2, "0")}
-                  </span>
+
+                <div className="flex flex-wrap items-center gap-1">
                   <button
                     type="button"
-                    aria-label="Clear key selection"
-                    title="Clear selection (Esc)"
-                    onClick={() => {
-                      setSelectedKeyPosition(undefined);
-                      setSelection(new Set());
-                    }}
-                    className="grid size-9 place-items-center rounded-control text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+                    title="Apply this binding to other keys"
+                    onClick={() =>
+                      selectedBinding &&
+                      setPaint({
+                        binding: selectedBinding,
+                        keepTap: true,
+                        label: selectedBindingDescription ?? "this binding",
+                      })
+                    }
+                    className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
                   >
-                    <X aria-hidden="true" className="size-4" />
+                    <Copy aria-hidden="true" className="size-3.5" />
+                    Repeat on keys
                   </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1">
-                <button
-                  type="button"
-                  title="Apply this binding to other keys"
-                  onClick={() =>
-                    selectedBinding &&
-                    setPaint({
-                      binding: selectedBinding,
-                      keepTap: true,
-                      label: selectedBindingDescription ?? "this binding",
-                    })
-                  }
-                  className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  <Copy aria-hidden="true" className="size-3.5" />
-                  Repeat on keys
-                </button>
-                {/* Only offered when the board actually has an opposite key.
+                  {/* Only offered when the board actually has an opposite key.
                     On an asymmetric layout, or a centre column, there is
                     nothing to mirror onto and guessing would scribble on a key
                     the user never looked at. */}
-                {mirrorTarget !== undefined && (
-                  <button
-                    type="button"
-                    title={`Copy to key ${mirrorTarget + 1}, swapping left and right modifiers`}
-                    onClick={mirrorSelection}
-                    disabled={isApplyingDraft}
-                    className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40"
-                  >
-                    <FlipHorizontal aria-hidden="true" className="size-3.5" />
-                    Mirror
-                  </button>
+                  {mirrorTarget !== undefined && (
+                    <button
+                      type="button"
+                      title={`Copy to key ${mirrorTarget + 1}, swapping left and right modifiers`}
+                      onClick={mirrorSelection}
+                      disabled={isApplyingDraft}
+                      className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40"
+                    >
+                      <FlipHorizontal aria-hidden="true" className="size-3.5" />
+                      Mirror
+                    </button>
+                  )}
+                </div>
+              </header>
+
+              <div className="p-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+                {keymap && selectedBinding && (
+                  <BehaviorBindingPicker
+                    key={`${selectedLayerIndex}:${selectedKeyPosition}`}
+                    binding={selectedBinding}
+                    behaviors={Object.values(behaviors)}
+                    layers={keymap.layers.map(({ id, name }, li) => ({
+                      id,
+                      name: name || li.toLocaleString(),
+                    }))}
+                    isDisabled={isApplyingDraft}
+                    onBindingChanged={onBindingChanged}
+                  />
                 )}
               </div>
-            </header>
-
-            <div className="p-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
-              {keymap && selectedBinding && (
-                <BehaviorBindingPicker
-                  key={`${selectedLayerIndex}:${selectedKeyPosition}`}
-                  binding={selectedBinding}
-                  behaviors={Object.values(behaviors)}
-                  layers={keymap.layers.map(({ id, name }, li) => ({
-                    id,
-                    name: name || li.toLocaleString(),
-                  }))}
-                  isDisabled={isApplyingDraft}
-                  onBindingChanged={onBindingChanged}
-                />
-              )}
-            </div>
-          </>
-        )}
-      </aside>
+            </>
+          }
+        </aside>
+      )}
     </main>
   );
 }

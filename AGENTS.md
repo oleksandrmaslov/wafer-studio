@@ -114,6 +114,27 @@ change the template together — or do neither.
 **`display: contents` on a landmark** drops it from the accessibility tree in
 some browsers. `<main>` is the grid itself for this reason.
 
+**Live apply plus reset-on-prop-change is a component that closes itself.**
+`BehaviorBindingPicker` edits live, so choosing a behavior publishes it
+immediately — and it also reset its editor whenever the `binding` prop changed,
+to handle the binding arriving from somewhere else. Those two are the same event
+from the component's point of view. Picking Bluetooth, or any behavior with a
+second choice to make, published, took its own write back as a prop change, and
+shut the editor on the click that opened it. Nothing errored and the behavior
+_was_ bound, so it looked cosmetic; it made every parameterised behavior
+unreachable. The write is now recorded in a ref and echoes of it are ignored.
+Any component that both publishes upward and reacts to what comes back needs the
+same guard.
+
+**A sticky child of a `.wafer-float` must be opaque, and the float must be too.**
+`.wafer-float` paints `--surface-panel` at **0.72**. A sticky bar inside it at
+`bg-panel/95` composites to ~0.99 and reads as a lighter band across the card.
+There is no alpha that both hides the content scrolling under it and matches a
+translucent parent — the parent has to give up its transparency. That is why the
+key-assignment rail carries an explicit `bg-panel`. Do not "fix" a seam like
+this with `backdrop-blur`: blurring there samples the parent's own fill and
+tints the strip, which is the artefact rather than the cure.
+
 **Pre-existing lint errors** in `src/keyboard/HidUsageLabel.tsx` (two
 `prefer-const`). Not yours; `npx eslint src --max-warnings 0` will always fail
 until someone fixes them.
@@ -161,6 +182,51 @@ dropped the template to `xl:grid-cols-1`, which put it in an implicit track with
 the explicit `1fr` eating the free space. Template and placement now move
 together in one pair of variables — the same rule §4 states, applied to the
 column the canvas asks for rather than to a pane being hidden.
+
+### The picker is open, and navigated rather than concealed
+
+Fourth design for the same panel, and the reversal is worth stating plainly
+because the third one looked like a success. Tab strip → hid the catalogue
+behind a guess. Everything expanded → too long to scroll. Everything collapsed →
+_this is the tab strip again, drawn vertically_. Ten shut headings and a single
+open one is the same failure with a different shape, and it produced the same
+report: "a lot of features are hidden, and for anybody who doesn't know it, it's
+not on the screen."
+
+Every group now renders open, and the length is handled by a **sticky jump bar**
+of section chips with counts. That is not the rejected tab strip: a tab strip
+_replaces_ the view with one bucket so the rest stops existing, while these
+scroll to a heading in a list that is entirely present either way. Nothing to
+guess, counts visible, and scrolling past everything still works. Collapsing
+survives per-group, so someone who never wants Lighting can fold it — it is
+just not the default state of the whole panel.
+
+The jump bar is built from the same conditions the sections are, so a chip can
+never point at a section that was not drawn. `SECTION_IDS` exists so the two
+cannot drift.
+
+Media & system also moved back _below_ Keys. It had been put on top to
+compensate for being collapsed; with nothing collapsed that is just a wrong
+reading order, since keys are the overwhelming majority of bindings.
+
+### Both connection types are always on screen
+
+The connect dialog used to render only the transports that happened to work, and
+forked its whole first screen on build: a browser got transport buttons, desktop
+got a flat scan list of everything in range. Two consequences. In a browser you
+saw one "USB" card, so the existence of Bluetooth was information you could only
+get by already knowing it. On desktop the choice of _how_ to connect was skipped
+entirely and BLE and USB keyboards arrived in one undifferentiated list.
+
+Now both builds start from the same two cards. A card with no transport behind
+it is drawn inert, says why, and carries the download link — which is the only
+place someone learns the desktop app exists at the moment they have a reason to
+want it. A card whose transport lists devices first drills into the scan list
+filtered to that transport; one that connects straight through does not.
+
+`CONNECTION_KINDS` is matched to transports by `label` (`"USB"` / `"BLE"`), which
+is the string `App.tsx` already uses. If a transport is ever renamed there, the
+card silently goes inert — grep before renaming.
 
 ### Scroll containers belong to `xl` only
 
