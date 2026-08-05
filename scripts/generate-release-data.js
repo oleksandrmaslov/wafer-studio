@@ -13,7 +13,8 @@ const __dirname = path.resolve(__filename, "../..");
  * Studio publishes its own. Overridable so a fork can point somewhere else
  * without editing the script.
  */
-const REPO = process.env.WAFER_RELEASE_REPO || "oleksandrmaslov/zmk-studio";
+const REPO =
+  process.env.WAFER_RELEASE_REPO || "oleksandrmaslov/wafer-zmk-studio";
 
 const DATA_FILE = path.resolve(__dirname, "src", "data", "release-data.json");
 

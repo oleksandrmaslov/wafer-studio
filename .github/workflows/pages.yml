@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'oleksandrmaslov/zmk-studio'
+    if: github.repository == 'oleksandrmaslov/wafer-zmk-studio'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,7 +41,7 @@ jobs:
 
       - name: Build for GitHub Pages
         env:
-          VITE_BASE_PATH: /zmk-studio/
+          VITE_BASE_PATH: /wafer-zmk-studio/
         run: npm run build
 
       - name: Configure GitHub Pages
@@ -53,7 +53,7 @@ jobs:
           path: dist
 
   deploy:
-    if: github.repository == 'oleksandrmaslov/zmk-studio'
+    if: github.repository == 'oleksandrmaslov/wafer-zmk-studio'
     needs: build
     runs-on: ubuntu-latest
     permissions:

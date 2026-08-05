@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to create, e.g. v0.3.2'
+        description: "Tag to create, e.g. v0.3.2"
         required: true
         type: string
   push:
@@ -146,6 +146,12 @@ jobs:
         with:
           releaseId: ${{ needs.draft.outputs.release_id }}
           args: ${{ matrix.args }}
+          # Not optional. `releaseDraft` defaults to *false*, and the action
+          # PATCHes the release with its settings after uploading — so every
+          # build job silently published the draft the moment it finished. The
+          # whole point of drafting first is that a human decides when the
+          # binaries go public; without this, nobody ever gets asked.
+          releaseDraft: true
 
       - name: keep the raw bundles too
         uses: actions/upload-artifact@v4
