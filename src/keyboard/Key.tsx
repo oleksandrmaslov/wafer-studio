@@ -1,13 +1,18 @@
+import type React from "react";
 import { PropsWithChildren } from "react";
 import BehaviorShortNames from "./behavior-short-names.json";
 
 interface KeyProps {
   selected?: boolean;
+  /** Changed in the current draft and not yet sent to the keyboard. */
+  drafted?: boolean;
+  /** In the multi-selection, but not the key the inspector is editing. */
+  coSelected?: boolean;
   width: number;
   height: number;
   oneU: number;
   header?: string;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent) => void;
 }
 
 interface BehaviorShortName {
@@ -18,24 +23,26 @@ const MAX_HEADER_LENGTH = 9;
 const shortNames: Record<string, BehaviorShortName> = BehaviorShortNames;
 
 const shortenHeader = (header: string | undefined) => {
-  if(typeof header === "undefined"){
+  if (typeof header === "undefined") {
     return "";
   }
   // Empty string is a valid header for behaviors where we don't want to see a header, which is falsy
   // So we use an undefined check here
-  if(typeof shortNames[header]?.short !== "undefined"){
+  if (typeof shortNames[header]?.short !== "undefined") {
     return shortNames[header].short;
-  } else if(header.length > MAX_HEADER_LENGTH){
+  } else if (header.length > MAX_HEADER_LENGTH) {
     const words = header.split(/[\s,-]+/);
     const lettersPerWord = Math.trunc(MAX_HEADER_LENGTH / words.length);
-    return words.map((word) => (word.substring(0,lettersPerWord))).join("");
+    return words.map((word) => word.substring(0, lettersPerWord)).join("");
   } else {
     return header;
   }
-}
+};
 
 export const Key = ({
   selected = false,
+  drafted = false,
+  coSelected = false,
   width,
   height,
   oneU,
@@ -48,15 +55,30 @@ export const Key = ({
 
   return (
     <button
-      className={`group rounded relative flex justify-center items-center cursor-pointer transition-all hover:shadow-xl hover:ring-1 hover:ring-gray-300 hover:scale-125 ${selected ? "bg-primary text-primary-content" : "bg-base-100 text-base-content"
-        }`}
+      type="button"
+      className={`wafer-key wafer-key-field @container group relative flex items-center justify-center ${
+        onClick ? "cursor-pointer" : "cursor-default"
+      }`}
+      data-interactive={Boolean(onClick)}
+      data-selected={selected}
+      data-drafted={drafted || undefined}
+      data-co-selected={coSelected || undefined}
+      aria-pressed={onClick ? selected : undefined}
+      aria-hidden={onClick ? undefined : true}
+      tabIndex={onClick ? undefined : -1}
       style={{
         width: `${pixelWidth}px`,
         height: `${pixelHeight}px`,
       }}
       onClick={onClick}
     >
-      <div className={`absolute text-xs ${selected ? "text-primary-content" : "z1text-base-content"} opacity-80 top-1 text-nowrap left-1/2 font-light -translate-x-1/2 text-center`}>{shortenHeader(header)}</div>
+      <span
+        className={`pointer-events-none absolute left-1/2 top-1 max-w-[calc(100%_-_0.5rem)] -translate-x-1/2 truncate text-center font-keycap text-[0.55rem] leading-none ${
+          selected ? "font-semibold text-ink" : "font-medium text-muted"
+        }`}
+      >
+        {shortenHeader(header)}
+      </span>
       {children}
     </button>
   );

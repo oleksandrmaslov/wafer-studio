@@ -7,7 +7,7 @@ import {
 
 export async function call_rpc(
   conn: RpcConnection,
-  req: Omit<Request, "requestId">
+  req: Omit<Request, "requestId">,
 ): Promise<RequestResponse> {
   console.log("RPC Request", req);
   return inner_call_rpc(conn, req)
@@ -17,6 +17,6 @@ export async function call_rpc(
     })
     .catch((e) => {
       console.error("RPC Error", e);
-      return e;
+      throw e;
     });
 }

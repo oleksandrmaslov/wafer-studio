@@ -3,6 +3,9 @@ import react from "@vitejs/plugin-react-swc";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // GitHub Pages serves this repository from /zmk-studio/. Keep the default
+  // root base for local development and Tauri builds.
+  base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [react()],
   // prevent vite from obscuring rust errors
   clearScreen: false,
@@ -27,12 +30,13 @@ export default defineConfig({
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
-    // include download page
+    // include the download and design-system pages
     rollupOptions: {
       input: {
         main: "./index.html",
         download: "./download.html",
+        design: "./design.html",
       },
-    }
+    },
   },
 });

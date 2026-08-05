@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 src/data
+.artifacts/
 
 # Editor directories and files
 .vscode/*
@@ -25,3 +26,6 @@ src/data
 *.sw?
 
 *storybook.log
+
+# Superseded material effects, kept locally for reference only.
+/deprecated/

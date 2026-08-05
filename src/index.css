@@ -1,3 +1,6 @@
+@import "./design-system/tokens.css";
+@import "./design-system/dispersion.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,12 +9,94 @@
   @font-face {
     font-family: "Inter";
     src: url("/Inter.woff2") format("woff2");
-    font-display: fallback;
+    font-display: swap;
   }
-}
 
-html {
-  color-scheme: light dark;
+  html {
+    color-scheme: light dark;
+    background: rgb(var(--surface-canvas));
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    background: rgb(var(--surface-canvas));
+    color: rgb(var(--ink-primary));
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  /* Focus is never dispersive. It is the one signal that must survive every
+     finish, every colour scheme, and every shader parameter. */
+  :focus-visible {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--wafer-primary) / 0.28);
+    color: rgb(var(--ink-primary));
+  }
+
+  /* ---- Scrollbars -----------------------------------------------------------
+     The platform's own scrollbar is the last piece of foreign chrome in the
+     application. On Windows it is a wide opaque trough with stepper arrows,
+     drawn in the OS palette rather than this one — a light-grey slab down the
+     side of a dark panel, which is exactly how it looked in the picker.
+
+     So: no track, no arrows, and a thumb that is a rounded bar of the same
+     line colour every border here uses. The transparent border with
+     `background-clip: content-box` is what insets the thumb from the edge —
+     `::-webkit-scrollbar-thumb` has no margin, so padding it is the only way
+     to get air around it.
+
+     Both syntaxes are needed and they are not interchangeable: Firefox and
+     recent Chromium honour the standard `scrollbar-*` properties (which cannot
+     express the inset), while WebKit and Blink honour the pseudo-elements. The
+     standard properties are stated first so the fallback is already correct,
+     and the pseudo-elements refine it where they apply. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong) / 0.7) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: rgb(var(--line-strong) / 0.55);
+    background-clip: content-box;
+    transition: background-color var(--motion-base) var(--motion-ease);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--line-strong) / 0.85);
+  }
+
+  /* Steppers are a Windows-only affordance nothing else in this interface has
+     an equivalent of, and they are what made the bar look pasted on. */
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
 }
 
 #root {
@@ -19,10 +104,517 @@ html {
   width: 100%;
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
+@layer components {
+  /* A scroller with no visible bar at all.
+     For short strips that scroll sideways — the section chips in the key
+     picker — where even a hairline bar is a second horizontal rule under a
+     single row of controls, and the content is self-evidently draggable. The
+     element still scrolls by wheel, trackpad, touch and keyboard; only the
+     indicator is gone. Do not put this on anything tall, where the bar is the
+     only clue that there is more below. */
+  .wafer-scroll-bare {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
 
-  width: 100vw;
-  height: 100vh;
+  .wafer-scroll-bare::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /* ---- Surfaces ---------------------------------------------------------- */
+  .wafer-finish-panel {
+    background-color: rgb(var(--surface-panel));
+    background-image: var(--wafer-specular-field);
+    background-attachment: fixed;
+    box-shadow: var(--elevation-panel);
+  }
+
+  /* ---- Segmented control -------------------------------------------------
+     A quiet shared track. The selected item is identified by tint and weight;
+     the dispersive edge only confirms what colour and contrast already say. */
+  .wafer-segmented {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border-radius: var(--radius-control);
+    background: rgb(var(--surface-canvas) / 0.72);
+  }
+
+  .wafer-segmented__item {
+    position: relative;
+    min-height: 2.25rem;
+    border-radius: calc(var(--radius-control) - 0.1875rem);
+    color: rgb(var(--ink-secondary));
+    font-size: 0.75rem;
+    font-weight: 650;
+    outline: none;
+    transition:
+      color var(--motion-fast) var(--motion-ease),
+      background-color var(--motion-fast) var(--motion-ease);
+  }
+
+  .wafer-segmented__item:hover:not(:disabled) {
+    color: rgb(var(--ink-primary));
+  }
+
+  .wafer-segmented__item[aria-pressed="true"] {
+    background: rgb(var(--surface-raised));
+    color: rgb(var(--accent-foreground));
+  }
+
+  .wafer-segmented__item:focus-visible {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: -1px;
+  }
+
+  .wafer-segmented__item:disabled {
+    cursor: not-allowed;
+    opacity: 0.38;
+  }
+
+  /* ---- Search field ------------------------------------------------------- */
+  .wafer-search-field {
+    display: flex;
+    min-height: var(--control-height);
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0 0.5rem 0 0.75rem;
+    border: 1px solid rgb(var(--line-subtle));
+    border-radius: var(--radius-control);
+    background: rgb(var(--surface-raised) / 0.42);
+    color: rgb(var(--ink-tertiary));
+    transition:
+      border-color var(--motion-fast) var(--motion-ease),
+      background-color var(--motion-fast) var(--motion-ease);
+  }
+
+  .wafer-search-field:hover {
+    border-color: rgb(var(--line-default));
+  }
+
+  .wafer-search-field:focus-within {
+    border-color: rgb(var(--focus-ring) / 0.72);
+    background: rgb(var(--surface-raised) / 0.76);
+  }
+
+  /* ---- Action row ---------------------------------------------------------
+     52–60px, icon + name + one description. Selection is carried by tint and
+     accent foreground; the edge is the confirmation, never the message. */
+  .wafer-action-row {
+    display: grid;
+    min-height: 3.5rem;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-surface);
+    background: transparent;
+    color: rgb(var(--ink-primary));
+    text-align: left;
+    outline: none;
+    transition:
+      background-color var(--motion-fast) var(--motion-ease),
+      color var(--motion-fast) var(--motion-ease);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-action-row:hover:not(:disabled) {
+      background: rgb(var(--surface-hover) / 0.82);
+    }
+  }
+
+  .wafer-action-row[data-selected="true"] {
+    background: rgb(var(--surface-selected) / 0.72);
+    color: rgb(var(--accent-foreground));
+  }
+
+  .wafer-action-row:focus-visible {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: -1px;
+  }
+
+  .wafer-action-row:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+
+  .wafer-action-row__icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: calc(var(--radius-control) - 0.125rem);
+    background: rgb(var(--surface-canvas) / 0.86);
+    color: rgb(var(--ink-tertiary));
+  }
+
+  .wafer-action-row[data-selected="true"] .wafer-action-row__icon {
+    background: rgb(var(--wafer-primary) / 0.11);
+    color: rgb(var(--accent-foreground));
+  }
+
+  /* ---- Button --------------------------------------------------------------
+     One quiet control. Primary intent is carried by `data-intent="primary"`,
+     not by a second component. */
+  .wafer-button {
+    display: inline-flex;
+    min-height: var(--control-height-compact);
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 1px solid rgb(var(--line-subtle));
+    border-radius: var(--radius-control);
+    padding: 0 0.75rem;
+    background: rgb(var(--surface-raised) / 0.6);
+    color: rgb(var(--ink-secondary));
+    font-size: 0.75rem;
+    font-weight: 650;
+    outline: none;
+    transition:
+      background-color var(--motion-fast) var(--motion-ease),
+      border-color var(--motion-fast) var(--motion-ease),
+      color var(--motion-fast) var(--motion-ease),
+      transform var(--motion-fast) var(--motion-ease);
+  }
+
+  /* Hover is gated: on touch, a tap fires :hover and leaves the control stuck
+     in a hovered state until the next tap elsewhere. */
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-button:hover:not(:disabled) {
+      border-color: rgb(var(--line-default));
+      background: rgb(var(--surface-hover));
+      color: rgb(var(--ink-primary));
+    }
+  }
+
+  /* Press feedback. The control has to acknowledge that it heard you. */
+  .wafer-button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .wafer-button[data-intent="primary"] {
+    border-color: transparent;
+    background: rgb(var(--wafer-primary));
+    color: rgb(var(--primary-content));
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-button[data-intent="primary"]:hover:not(:disabled) {
+      background: rgb(var(--wafer-primary-hover));
+      color: rgb(var(--primary-content));
+    }
+  }
+
+  .wafer-button:focus-visible {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+  }
+
+  .wafer-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+
+  /* ---- Floating surface -----------------------------------------------------
+     Panels sit *on* the substrate with air around them rather than being cut
+     into the window edge. Full-bleed panes divided the screen into strips and
+     made the app read as a set of adjoining regions; a floating card reads as
+     an object over a continuous ground, and the ground is the same lit surface
+     everywhere, so nothing has a hard seam.
+
+     The border is a hairline of the light rather than a line colour, which is
+     what stops the card from looking pasted on. */
+  .wafer-float {
+    position: relative;
+    border-radius: var(--radius-panel);
+    background-color: rgb(var(--surface-panel) / 0.72);
+    box-shadow:
+      inset 0 0 0 1px rgb(var(--light-specular) / 0.06),
+      0 1px 2px rgb(var(--light-shadow) / 0.16),
+      0 12px 32px -12px rgb(var(--light-shadow) / 0.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.15);
+    backdrop-filter: blur(12px) saturate(1.15);
+  }
+
+  /* Transparency is the effect, so when it is unwanted there is nothing to
+     soften — the card becomes an ordinary opaque panel. */
+  @media (prefers-reduced-transparency: reduce) {
+    .wafer-float {
+      background-color: rgb(var(--surface-panel));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /* ---- Accent surface -------------------------------------------------------
+     The application's primary action fill, and the replacement for the chrome
+     one that used to live in metal.css (now under `deprecated/`).
+
+     The fill stays achromatic, like every other fill in the system. What marks
+     it as primary is that it sits permanently at the top of the dispersion
+     scale: its edge carries full spectrum at rest, where every other control's
+     edge stays dark until you touch it. So "primary" is a position on the same
+     axis as hover and focus rather than a separate colour, and the whole ladder
+     remains one idea. */
+  .wafer-accent {
+    position: relative;
+    --dispersion: var(--dispersion-committed);
+    background-color: rgb(var(--surface-raised));
+    background-image: var(--wafer-specular-field);
+    background-attachment: fixed;
+    color: rgb(var(--ink-primary));
+    transition: background-color var(--motion-fast) var(--motion-ease);
+  }
+
+  .wafer-accent::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    padding: var(--hairline);
+    border-radius: inherit;
+    background-image: var(--wafer-light-field), var(--wafer-spectrum-field);
+    background-attachment: fixed, fixed;
+    content: "";
+    opacity: clamp(0, calc(var(--dispersion) * var(--dispersion-gain)), 1);
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-accent:hover:not(:disabled):not([data-disabled]) {
+      background-color: rgb(var(--surface-hover));
+    }
+  }
+
+  .wafer-accent:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  /* Disabled drops the material entirely. A greyed-out label inside a live
+     dispersive edge still reads as available. */
+  .wafer-accent:disabled,
+  .wafer-accent[data-disabled] {
+    --dispersion: var(--dispersion-inert);
+    background-image: none;
+    background-color: rgb(var(--surface-hover));
+    color: rgb(var(--ink-tertiary));
+  }
+
+  /* ---- Slider ---------------------------------------------------------------
+     The filled portion of the track is a window onto the shared spectrum field,
+     so a row of sliders reads as one continuous material rather than as
+     fourteen independent widgets. */
+  .wafer-slider {
+    width: 100%;
+    height: 1rem;
+    padding: 0;
+    background: transparent;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .wafer-slider::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 999px;
+    background-color: rgb(var(--surface-canvas));
+    /* The filled portion is a window onto the shared spectrum; the remainder is
+       masked back to the track colour. Filled reads as energised, and a row of
+       sliders reads as one continuous material. */
+    background-image: linear-gradient(
+        90deg,
+        transparent var(--progress, 0%),
+        rgb(var(--surface-canvas)) var(--progress, 0%)
+      ),
+      var(--wafer-spectrum-field);
+    background-attachment: scroll, fixed;
+  }
+
+  .wafer-slider::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 999px;
+    background-color: rgb(var(--surface-canvas));
+    /* The filled portion is a window onto the shared spectrum; the remainder is
+       masked back to the track colour. Filled reads as energised, and a row of
+       sliders reads as one continuous material. */
+    background-image: linear-gradient(
+        90deg,
+        transparent var(--progress, 0%),
+        rgb(var(--surface-canvas)) var(--progress, 0%)
+      ),
+      var(--wafer-spectrum-field);
+    background-attachment: scroll, fixed;
+  }
+
+  .wafer-slider::-webkit-slider-thumb {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-top: -0.3125rem;
+    border: 1px solid rgb(var(--line-strong));
+    border-radius: 999px;
+    background: rgb(var(--surface-raised));
+    box-shadow: var(--elevation-panel);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .wafer-slider::-moz-range-thumb {
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 1px solid rgb(var(--line-strong));
+    border-radius: 999px;
+    background: rgb(var(--surface-raised));
+    box-shadow: var(--elevation-panel);
+  }
+
+  .wafer-slider:focus-visible::-webkit-slider-thumb {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 1px;
+  }
+
+  .wafer-slider:focus-visible::-moz-range-thumb {
+    outline: 3px solid rgb(var(--focus-ring));
+    outline-offset: 1px;
+  }
+
+  /* ---- Key ----------------------------------------------------------------
+     The physical object in the interface, and the only place a literal shadow
+     is allowed — a key really is a raised thing. */
+  .wafer-key {
+    border: 1px solid rgb(var(--line-default));
+    border-radius: var(--radius-key);
+    background: rgb(var(--surface-raised));
+    color: rgb(var(--ink-primary));
+    box-shadow: var(--key-shadow);
+    transition:
+      transform 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-key[data-interactive="true"]:hover {
+      z-index: 1;
+      transform: translateY(-1px);
+      border-color: rgb(var(--wafer-primary) / 0.72);
+      box-shadow: var(--key-shadow-hover);
+    }
+  }
+
+  .wafer-key[data-interactive="true"]:active {
+    transform: translateY(1px);
+    box-shadow: var(--key-shadow-pressed);
+  }
+
+  /* The selected key is the one place on the canvas where the spectrum earns
+     its keep. It used to take a flat `--wafer-primary` ring, which was coral
+     and became grey the moment the accent went achromatic — so selection lost
+     its only colour. It now wears the shared spectral edge at full commitment,
+     like every other committed element in the system, which means the selected
+     key on a Corne and the primary button in the header are lit by the same
+     source and land on different hues because they are in different places. */
+  .wafer-key[data-selected="true"] {
+    border-color: rgb(var(--light-specular) / 0.42);
+    box-shadow:
+      0 0 0 2px rgb(var(--light-specular) / 0.28),
+      var(--key-shadow);
+  }
+
+  /* Also selected, but not the key the inspector is describing. Quieter than
+     the primary — a wash and a border rather than the full spectral ring — so
+     it is obvious at a glance which of eight selected keys the panel on the
+     right is actually talking about. */
+  .wafer-key[data-co-selected] {
+    border-color: rgb(var(--light-specular) / 0.3);
+    background-color: rgb(var(--surface-hover));
+  }
+
+  /* A key changed in the draft and not yet sent. A corner mark rather than a
+     ring, so it can coexist with selection on the same key — you need to see
+     both at once, since the key you are editing is by definition the key you
+     just changed. Cut from the same field as everything else, so a row of
+     edited keys shows the spectrum sweeping across it. */
+  .wafer-key[data-drafted]::after {
+    position: absolute;
+    z-index: 3;
+    top: 3px;
+    right: 3px;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background-image: var(--key-light-field), var(--key-spectrum-field);
+    content: "";
+    opacity: clamp(
+      0,
+      calc(0.9 * var(--dispersion-gain) * var(--light-presence)),
+      1
+    );
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgb(var(--surface-raised) / 0.9);
+  }
+
+  /* Uses `.wafer-key-field` rather than the viewport-space fields: the board is
+     inside a transform, which breaks `background-attachment: fixed`. See the
+     board-space note in dispersion.css. */
+  .wafer-key[data-selected="true"]::before {
+    position: absolute;
+    z-index: 2;
+    inset: -2px;
+    padding: 2px;
+    border-radius: calc(var(--radius-key) + 1px);
+    background-image: var(--key-light-field), var(--key-spectrum-field);
+    content: "";
+    opacity: clamp(0, calc(var(--dispersion-gain) * var(--light-presence)), 1);
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  .wafer-key:focus-visible {
+    z-index: 2;
+    outline-offset: 3px;
+  }
+}
+
+/* Reduced motion means less movement, not no feedback. Opacity and colour
+   transitions carry meaning (what is selected, what responded to a press), so
+   they stay. Movement, and anything that loops, does not. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: opacity, background-color, border-color, color,
+      box-shadow !important;
+    transition-duration: 120ms !important;
+  }
+
+  .wafer-button:active:not(:disabled),
+  .wafer-key[data-interactive="true"]:hover,
+  .wafer-key[data-interactive="true"]:active {
+    transform: none;
+  }
 }

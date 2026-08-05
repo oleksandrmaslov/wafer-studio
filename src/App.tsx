@@ -5,7 +5,15 @@ import { call_rpc } from "./rpc/logging";
 
 import type { Notification } from "@zmkfirmware/zmk-studio-ts-client/studio";
 import { ConnectionState, ConnectionContext } from "./rpc/ConnectionContext";
-import { Dispatch, useCallback, useEffect, useState } from "react";
+import {
+  Dispatch,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Info, Scale, TriangleAlert, Unplug } from "lucide-react";
 import { ConnectModal, TransportFactory } from "./ConnectModal";
 
 import type { RpcTransport } from "@zmkfirmware/zmk-studio-ts-client/transport/index";
@@ -21,14 +29,20 @@ import {
 } from "./tauri/serial";
 import Keyboard from "./keyboard/Keyboard";
 import { UndoRedoContext, useUndoRedo } from "./undoRedo";
-import { usePub, useSub } from "./usePubSub";
+import { usePub as getPublisher, useSub } from "./usePubSub";
 import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { LockStateContext } from "./rpc/LockStateContext";
 import { UnlockModal } from "./UnlockModal";
 import { valueAfter } from "./misc/async";
-import { AppFooter } from "./AppFooter";
 import { AboutModal } from "./AboutModal";
 import { LicenseNoticeModal } from "./misc/LicenseNoticeModal";
+import { createMockRpcTransport } from "./rpc/mockTransport";
+import type {
+  DraftApplyResult,
+  KeymapDraftController,
+} from "./keyboard/keymapDraft";
+import { CommandPaletteProvider } from "./design-system/CommandPalette";
+import { useCommands, type Command } from "./design-system/commandRegistry";
 
 declare global {
   interface Window {
@@ -68,19 +82,19 @@ const TRANSPORTS: TransportFactory[] = [
 
 async function listen_for_notifications(
   notification_stream: ReadableStream<Notification>,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<void> {
-  let reader = notification_stream.getReader();
+  const reader = notification_stream.getReader();
   const onAbort = () => {
     reader.cancel();
     reader.releaseLock();
   };
   signal.addEventListener("abort", onAbort, { once: true });
-  do {
-    let pub = usePub();
+  while (!signal.aborted) {
+    const pub = getPublisher();
 
     try {
-      let { done, value } = await reader.read();
+      const { done, value } = await reader.read();
       if (done) {
         break;
       }
@@ -93,14 +107,16 @@ async function listen_for_notifications(
       pub("rpc_notification", value);
 
       const subsystem = Object.entries(value).find(
-        ([_k, v]) => v !== undefined
+        (entry) => entry[1] !== undefined,
       );
       if (!subsystem) {
         continue;
       }
 
       const [subId, subData] = subsystem;
-      const event = Object.entries(subData).find(([_k, v]) => v !== undefined);
+      const event = Object.entries(subData).find(
+        (entry) => entry[1] !== undefined,
+      );
 
       if (!event) {
         continue;
@@ -115,7 +131,7 @@ async function listen_for_notifications(
       reader.releaseLock();
       throw e;
     }
-  } while (true);
+  }
 
   signal.removeEventListener("abort", onAbort);
   reader.releaseLock();
@@ -126,11 +142,13 @@ async function connect(
   transport: RpcTransport,
   setConn: Dispatch<ConnectionState>,
   setConnectedDeviceName: Dispatch<string | undefined>,
-  signal: AbortSignal
+  setConnectionError: Dispatch<string | undefined>,
+  signal: AbortSignal,
 ) {
-  let conn = await create_rpc_connection(transport, { signal });
+  setConnectionError(undefined);
+  const conn = await create_rpc_connection(transport, { signal });
 
-  let details = await Promise.race([
+  const details = await Promise.race([
     call_rpc(conn, { core: { getDeviceInfo: true } })
       .then((r) => r?.core?.getDeviceInfo)
       .catch((e) => {
@@ -141,8 +159,9 @@ async function connect(
   ]);
 
   if (!details) {
-    // TODO: Show a proper toast/alert not using `window.alert`
-    window.alert("Failed to connect to the chosen device");
+    setConnectionError(
+      "Wafer Studio could not read this keyboard. Reconnect it and try again.",
+    );
     return;
   }
 
@@ -151,13 +170,93 @@ async function connect(
       setConnectedDeviceName(undefined);
       setConn({ conn: null });
     })
-    .catch((_e) => {
+    .catch(() => {
       setConnectedDeviceName(undefined);
       setConn({ conn: null });
     });
 
-  setConnectedDeviceName(details.name);
+  setConnectedDeviceName(
+    transport.label.toLocaleLowerCase().includes("demo")
+      ? `${details.name} · Demo`
+      : details.name,
+  );
+  setConnectionError(undefined);
   setConn({ conn });
+}
+
+/**
+ * Connection and firmware commands.
+ *
+ * A child component rather than part of `App`, because registering requires the
+ * context that `App` itself provides — and because this is exactly where the
+ * destructive pair belongs: out of the header menu where `resetSettings` sat
+ * two rows below "About".
+ */
+function ShellCommands({
+  onDisconnect,
+  onResetSettings,
+  onShowAbout,
+  onShowLicenseNotice,
+  connected,
+}: {
+  onDisconnect: () => void;
+  onResetSettings: () => void;
+  onShowAbout: () => void;
+  onShowLicenseNotice: () => void;
+  connected: boolean;
+}) {
+  const commands = useMemo<Command[]>(
+    () => [
+      {
+        id: "shell.about",
+        label: "About Wafer Studio",
+        section: "Application",
+        icon: Info,
+        run: onShowAbout,
+      },
+      {
+        // Registered here rather than left in the header, which no longer has a
+        // menu to hold it. This one is not optional the way a convenience row
+        // is: the project ships a NOTICE file and the attributions in it have to
+        // stay reachable from the running application.
+        id: "shell.licenses",
+        label: "Open-source notices",
+        section: "Application",
+        icon: Scale,
+        keywords: "license licence attribution notice legal",
+        run: onShowLicenseNotice,
+      },
+      {
+        id: "shell.disconnect",
+        label: "Disconnect keyboard",
+        section: "Connection",
+        icon: Unplug,
+        disabled: !connected,
+        run: onDisconnect,
+      },
+      {
+        id: "shell.reset",
+        label: "Reset keyboard settings",
+        section: "Connection",
+        icon: TriangleAlert,
+        keywords: "erase wipe factory defaults",
+        hint: "cannot be undone",
+        destructive: true,
+        disabled: !connected,
+        run: onResetSettings,
+      },
+    ],
+    [
+      connected,
+      onDisconnect,
+      onResetSettings,
+      onShowAbout,
+      onShowLicenseNotice,
+    ],
+  );
+
+  useCommands(commands);
+  return null;
 }
 
 function App() {
@@ -168,10 +267,14 @@ function App() {
   const [doIt, undo, redo, canUndo, canRedo, reset] = useUndoRedo();
   const [showAbout, setShowAbout] = useState(false);
   const [showLicenseNotice, setShowLicenseNotice] = useState(false);
+  const [connectionError, setConnectionError] = useState<string>();
   const [connectionAbort, setConnectionAbort] = useState(new AbortController());
+  const [draftController, setDraftController] =
+    useState<KeymapDraftController>();
+  const autoDemoStarted = useRef(false);
 
   const [lockState, setLockState] = useState<LockState>(
-    LockState.ZMK_STUDIO_CORE_LOCK_STATE_LOCKED
+    LockState.ZMK_STUDIO_CORE_LOCK_STATE_LOCKED,
   );
 
   useSub("rpc_notification.core.lockStateChanged", (ls) => {
@@ -179,7 +282,7 @@ function App() {
   });
 
   useEffect(() => {
-    if (!conn) {
+    if (!conn.conn) {
       reset();
       setLockState(LockState.ZMK_STUDIO_CORE_LOCK_STATE_LOCKED);
     }
@@ -189,32 +292,31 @@ function App() {
         return;
       }
 
-      let locked_resp = await call_rpc(conn.conn, {
+      const locked_resp = await call_rpc(conn.conn, {
         core: { getLockState: true },
       });
 
       setLockState(
         locked_resp.core?.getLockState ||
-          LockState.ZMK_STUDIO_CORE_LOCK_STATE_LOCKED
+          LockState.ZMK_STUDIO_CORE_LOCK_STATE_LOCKED,
       );
     }
 
     updateLockState();
-  }, [conn, setLockState]);
+  }, [conn, reset, setLockState]);
 
-  const save = useCallback(() => {
-    async function doSave() {
-      if (!conn.conn) {
-        return;
-      }
-
-      let resp = await call_rpc(conn.conn, { keymap: { saveChanges: true } });
-      if (!resp.keymap?.saveChanges || resp.keymap?.saveChanges.err) {
-        console.error("Failed to save changes", resp.keymap?.saveChanges);
-      }
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!conn.conn) {
+      return false;
     }
 
-    doSave();
+    const resp = await call_rpc(conn.conn, { keymap: { saveChanges: true } });
+    if (!resp.keymap?.saveChanges || resp.keymap?.saveChanges.err) {
+      console.error("Failed to save changes", resp.keymap?.saveChanges);
+      return false;
+    }
+
+    return true;
   }, [conn]);
 
   const discard = useCallback(() => {
@@ -223,7 +325,7 @@ function App() {
         return;
       }
 
-      let resp = await call_rpc(conn.conn, {
+      const resp = await call_rpc(conn.conn, {
         keymap: { discardChanges: true },
       });
       if (!resp.keymap?.discardChanges) {
@@ -235,7 +337,7 @@ function App() {
     }
 
     doDiscard();
-  }, [conn]);
+  }, [conn, reset]);
 
   const resetSettings = useCallback(() => {
     async function doReset() {
@@ -243,7 +345,7 @@ function App() {
         return;
       }
 
-      let resp = await call_rpc(conn.conn, {
+      const resp = await call_rpc(conn.conn, {
         core: { resetSettings: true },
       });
       if (!resp.core?.resetSettings) {
@@ -255,7 +357,7 @@ function App() {
     }
 
     doReset();
-  }, [conn]);
+  }, [conn, reset]);
 
   const disconnect = useCallback(() => {
     async function doDisconnect() {
@@ -269,16 +371,57 @@ function App() {
     }
 
     doDisconnect();
-  }, [conn]);
+  }, [conn, connectionAbort]);
 
   const onConnect = useCallback(
     (t: RpcTransport) => {
       const ac = new AbortController();
       setConnectionAbort(ac);
-      connect(t, setConn, setConnectedDeviceName, ac.signal);
+      connect(
+        t,
+        setConn,
+        setConnectedDeviceName,
+        setConnectionError,
+        ac.signal,
+      );
     },
-    [setConn, setConnectedDeviceName, setConnectedDeviceName]
+    [setConn, setConnectedDeviceName],
   );
+
+  const onExploreDemo = useCallback(
+    () => onConnect(createMockRpcTransport()),
+    [onConnect],
+  );
+
+  const applyDraft = useCallback(async (): Promise<DraftApplyResult> => {
+    if (!draftController) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        remainingCount: 0,
+        message: "No key draft is available.",
+      };
+    }
+
+    const result = await draftController.apply();
+    if (result.ok || result.appliedCount > 0) reset();
+    return result;
+  }, [draftController, reset]);
+
+  const discardDraft = useCallback(() => {
+    draftController?.discard();
+    reset();
+  }, [draftController, reset]);
+
+  useEffect(() => {
+    if (
+      !autoDemoStarted.current &&
+      new URLSearchParams(window.location.search).get("demo") === "1"
+    ) {
+      autoDemoStarted.current = true;
+      onExploreDemo();
+    }
+  }, [onExploreDemo]);
 
   return (
     <ConnectionContext.Provider value={conn}>
@@ -289,30 +432,45 @@ function App() {
             open={!conn.conn}
             transports={TRANSPORTS}
             onTransportCreated={onConnect}
+            onExploreDemo={onExploreDemo}
+            connectionError={connectionError}
           />
           <AboutModal open={showAbout} onClose={() => setShowAbout(false)} />
           <LicenseNoticeModal
             open={showLicenseNotice}
             onClose={() => setShowLicenseNotice(false)}
           />
-          <div className="bg-base-100 text-base-content h-full max-h-[100vh] w-full max-w-[100vw] inline-grid grid-cols-[auto] grid-rows-[auto_1fr_auto] overflow-hidden">
-            <AppHeader
-              connectedDeviceLabel={connectedDeviceName}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={undo}
-              onRedo={redo}
-              onSave={save}
-              onDiscard={discard}
+          <CommandPaletteProvider>
+            <ShellCommands
+              connected={Boolean(conn.conn)}
               onDisconnect={disconnect}
               onResetSettings={resetSettings}
-            />
-            <Keyboard />
-            <AppFooter
               onShowAbout={() => setShowAbout(true)}
               onShowLicenseNotice={() => setShowLicenseNotice(true)}
             />
-          </div>
+            <div className="grid h-[100dvh] min-h-0 w-full max-w-[100vw] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base-100 text-base-content">
+              <AppHeader
+                connectedDeviceLabel={connectedDeviceName}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={undo}
+                onRedo={redo}
+                onSave={save}
+                onDiscard={discard}
+                onDisconnect={disconnect}
+                onResetSettings={resetSettings}
+                onShowAbout={() => setShowAbout(true)}
+                onShowLicenseNotice={() => setShowLicenseNotice(true)}
+                draftCount={draftController?.draftCount || 0}
+                draftChanges={draftController?.changes || []}
+                draftErrors={draftController?.errors || []}
+                draftIsApplying={draftController?.isApplying || false}
+                onApplyDraft={applyDraft}
+                onDiscardDraft={discardDraft}
+              />
+              <Keyboard onDraftStateChange={setDraftController} />
+            </div>
+          </CommandPaletteProvider>
         </UndoRedoContext.Provider>
       </LockStateContext.Provider>
     </ConnectionContext.Provider>

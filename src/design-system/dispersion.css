@@ -1,0 +1,272 @@
+/*
+ * Wafer design system — dispersion
+ *
+ * The whole application shares ONE light source.
+ *
+ * Every dispersive edge in the interface paints its gradient in *viewport* space
+ * (`background-attachment: fixed`), so each element samples the same global
+ * field at its own position. Nothing is composed per-component: an element near
+ * the light gets a white specular edge, an element far from it falls into the
+ * spectrum, and the hue it lands on is determined by its bearing from the light.
+ * Move the light and the entire interface re-disperses coherently, because
+ * there is only one gradient and every edge is a window onto it.
+ *
+ * That is the difference between this and skeuomorphism. Skeuomorphic chrome
+ * fakes a material by drawing a bevel on each control. Here no control pretends
+ * to be an object; the system models one physical law and lets geometry decide
+ * what each edge shows. It cannot be authored per-component, and it cannot be
+ * screenshotted — which is precisely the point.
+ *
+ * Rules this file enforces:
+ *   1. Dispersion lives at edges. Fills stay achromatic.
+ *   2. Dispersion is an intensity, driven by how live an element is.
+ *   3. Dispersion never carries state alone. Every state it accompanies also
+ *      has a non-spectral signal.
+ */
+
+/* Registered so the light field is typed and interpolable, and so a malformed
+   write from JS cannot poison the cascade. */
+@property --light-x {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.28;
+}
+
+@property --light-y {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.06;
+}
+
+/* Must inherit. The ring is drawn by ::after, and a registered property with
+   inherits:false resolves to its initial value on a pseudo-element rather than
+   to the value set on the originating element — every ring would be invisible.
+   Each .wafer-dispersive sets its own value, so inheritance stays contained. */
+@property --dispersion {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Whether the light is in the room at all.
+   The light used to ease back to its rest position when the pointer left the
+   window, which read as the light *travelling* across the interface on its own
+   — movement nobody asked for, drawing the eye to a window that had just been
+   abandoned. It now fades out where it stands and fades back in where the
+   pointer returns, so leaving the window is the light going out rather than the
+   light going somewhere. */
+@property --light-presence {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+@layer base {
+  :root {
+    /* Rest position: high and slightly left. The canonical studio key light,
+       and where the light returns when the pointer leaves. */
+    --light-x: 0.28;
+    --light-y: 0.06;
+    --light-presence: 1;
+    /* The fade itself. Registered as a <number>, so it interpolates — the
+       property is written as a bare 0 or 1 from JS and CSS does the easing. */
+    transition: --light-presence 280ms var(--motion-ease);
+    --light-px: calc(var(--light-x) * 100vw);
+    --light-py: calc(var(--light-y) * 100vh);
+    --light-spread: 56vmax;
+
+    /* The dispersion scale. An element sits on a step according to how live it
+       is — this is the system's fourth axis, alongside colour, type, and space. */
+    --dispersion-inert: 0;
+    --dispersion-latent: 0.34; /* hover — the edge is aware of you */
+    --dispersion-engaged: 0.66; /* focus, open, active */
+    --dispersion-committed: 1; /* selected, bound, primary */
+
+    /* Amplitude of the whole system.
+       There used to be three selectable finishes multiplying these — 0.5/0.4,
+       1/1 and 1.55/1.35 — behind a menu in the header. They were removed rather
+       than retuned: nobody could tell the levels apart in use, which makes a
+       three-way choice a question with no answer, and a design system with a
+       volume knob is really three design systems that have to be checked three
+       times. These are the values the default finish resolved to, so what is on
+       screen is unchanged; this is now the amplitude, not a preset of it. */
+    --dispersion-gain: 0.5;
+    --specular-gain: 0.4;
+
+    /* Distance from the light decides brightness. */
+    --wafer-light-field: radial-gradient(
+      circle var(--light-spread) at var(--light-px) var(--light-py),
+      rgb(var(--light-specular) / calc(0.92 * var(--light-presence))),
+      rgb(var(--light-specular) / calc(0.32 * var(--light-presence))) 16%,
+      rgb(var(--light-specular) / 0) 44%
+    );
+
+    /* Bearing from the light decides hue. Start and end match so the ramp is
+       continuous the whole way round, and the sweep runs out to magenta and
+       back rather than through a warm stop — cyan, azure, violet, magenta,
+       violet, azure, cyan. */
+    --wafer-spectrum-field: conic-gradient(
+      from -55deg at var(--light-px) var(--light-py),
+      rgb(var(--spectral-cyan)),
+      rgb(var(--spectral-azure)) 16%,
+      rgb(var(--spectral-violet)) 36%,
+      rgb(var(--spectral-magenta)) 52%,
+      rgb(var(--spectral-violet)) 70%,
+      rgb(var(--spectral-azure)) 86%,
+      rgb(var(--spectral-cyan))
+    );
+
+    /* Achromatic sheen for large surfaces. Value only — no hue ever reaches a
+       fill, or the edges stop being the only place colour lives. */
+    --wafer-specular-field: radial-gradient(
+      circle var(--light-spread) at var(--light-px) var(--light-py),
+      rgb(var(--light-specular) / calc(0.06 * var(--light-presence))),
+      rgb(var(--light-specular) / calc(0.015 * var(--light-presence))) 30%,
+      rgb(var(--light-specular) / 0) 60%
+    );
+  }
+
+  /* Movement is the part reduced-motion removes. The identity stays: the light
+     parks at rest and every edge still disperses, it just stops following. */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --light-x: 0.28 !important;
+      --light-y: 0.06 !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---- The dispersive edge -----------------------------------------------
+     A one-pixel ring cut from the shared field. This is the system's signature
+     and the only place hue is allowed to touch a surface. */
+  .wafer-dispersive {
+    position: relative;
+    --dispersion: var(--dispersion-inert);
+  }
+
+  .wafer-dispersive::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    padding: var(--hairline);
+    border-radius: inherit;
+    background-image: var(--wafer-light-field), var(--wafer-spectrum-field);
+    background-attachment: fixed, fixed;
+    content: "";
+    opacity: clamp(
+      0,
+      calc(var(--dispersion) * var(--dispersion-gain) * var(--light-presence)),
+      1
+    );
+    pointer-events: none;
+    transition: opacity var(--motion-base) var(--motion-ease);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* The default state ladder. Components opt out by setting --dispersion
+     themselves; they never restyle the ring. */
+  /* Gated: on touch, a tap fires :hover and the edge stays lit afterwards. */
+  @media (hover: hover) and (pointer: fine) {
+    .wafer-dispersive:hover:not(:disabled) {
+      --dispersion: var(--dispersion-latent);
+    }
+  }
+
+  .wafer-dispersive:focus-visible,
+  .wafer-dispersive:focus-within {
+    --dispersion: var(--dispersion-engaged);
+  }
+
+  .wafer-dispersive[data-selected="true"],
+  .wafer-dispersive[aria-pressed="true"],
+  .wafer-dispersive[aria-expanded="true"] {
+    --dispersion: var(--dispersion-committed);
+  }
+
+  .wafer-dispersive:disabled,
+  .wafer-dispersive[aria-disabled="true"] {
+    --dispersion: var(--dispersion-inert);
+  }
+
+  /* ---- Board-space light --------------------------------------------------
+     The keyboard is drawn inside a `transform: scale()`, and a transformed
+     ancestor breaks `background-attachment: fixed` — the gradient starts
+     resolving against the transformed box instead of the viewport, so a key's
+     ring becomes a local gradient that cannot see the cursor.
+
+     So the light is converted into the board's own coordinates instead.
+     `PhysicalLayout` publishes where the board sits and how far it is scaled;
+     these two numbers do the rest, and CSS recomputes them for free every time
+     the light moves. `at` positions are relative to each key's own box, hence
+     subtracting the key's origin within the board.
+
+     Defaults keep this harmless anywhere the board vars are absent. */
+  .wafer-key-field {
+    --light-bx: calc(
+      (var(--light-px) - var(--board-x, 0px)) / var(--board-scale, 1)
+    );
+    --light-by: calc(
+      (var(--light-py) - var(--board-y, 0px)) / var(--board-scale, 1)
+    );
+    --key-light-x: calc(var(--light-bx) - var(--kx, 0px));
+    --key-light-y: calc(var(--light-by) - var(--ky, 0px));
+
+    /* Custom properties, not a background. `background-image` is not inherited,
+       and `.wafer-key` sets the `background` *shorthand*, which would reset it
+       anyway — so the field is published as two coordinates and each
+       pseudo-element paints its own gradient from them. */
+    --key-light-field: radial-gradient(
+      circle calc(var(--light-spread) / var(--board-scale, 1)) at
+        var(--key-light-x) var(--key-light-y),
+      rgb(var(--light-specular) / calc(0.92 * var(--light-presence))),
+      rgb(var(--light-specular) / calc(0.32 * var(--light-presence))) 16%,
+      rgb(var(--light-specular) / 0) 44%
+    );
+
+    --key-spectrum-field: conic-gradient(
+      from -55deg at var(--key-light-x) var(--key-light-y),
+      rgb(var(--spectral-cyan)),
+      rgb(var(--spectral-azure)) 16%,
+      rgb(var(--spectral-violet)) 36%,
+      rgb(var(--spectral-magenta)) 52%,
+      rgb(var(--spectral-violet)) 70%,
+      rgb(var(--spectral-azure)) 86%,
+      rgb(var(--spectral-cyan))
+    );
+  }
+
+  /* ---- Substrate ----------------------------------------------------------
+     Large surfaces catch the same light achromatically. This is what gives the
+     canvas depth rather than leaving it a flat div, without a single bevel. */
+  .wafer-substrate {
+    background-image: var(--wafer-specular-field);
+    background-attachment: fixed;
+  }
+
+  /* ---- Spectral rule ------------------------------------------------------
+     A hairline that disperses along its length — for panel edges and header
+     underlines, where a full ring would be too much. */
+  .wafer-rule {
+    height: var(--hairline);
+    border: 0;
+    margin: 0;
+    background-image: var(--wafer-light-field), var(--wafer-spectrum-field);
+    background-attachment: fixed, fixed;
+    opacity: clamp(0, calc(0.5 * var(--dispersion-gain)), 1);
+  }
+
+  /* ---- The mark -----------------------------------------------------------
+     The logo wears the same ring as every other control, at full commitment.
+     It is the system's proof: the mark and the interface are lit by one light. */
+  .wafer-mark-tile {
+    --dispersion: var(--dispersion-committed);
+  }
+}

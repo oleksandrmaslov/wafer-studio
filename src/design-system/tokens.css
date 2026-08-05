@@ -1,0 +1,157 @@
+/*
+ * Wafer design system — foundations
+ *
+ * One light, one spectrum. Surfaces carry no hue at all; colour appears only
+ * where an edge turns away from the light and splits it. This file encodes that
+ * as a system rather than as a texture.
+ *
+ *   Substrate  achromatic. Value only, never hue. Split light only reads as
+ *              split light against neutral, so no surface token carries a cast.
+ *   Spectrum   the dispersion ramp. It exists at edges, never as a fill.
+ *   Dispersion an intensity axis, like a type scale. Elements sit at a step on
+ *              it according to how live they are, not according to decoration.
+ *
+ * Channels are stored as raw RGB triples so Tailwind opacity modifiers such as
+ * `bg-panel/70` keep working.
+ */
+
+@layer base {
+  :root {
+    /* ---- Substrate (light) ------------------------------------------------
+       Cool neutral paper. Deliberately achromatic: a warm cast would tint the
+       specular highlight and the spectrum would stop reading as split light. */
+    --surface-canvas: 236 238 240; /* #ECEEF0 */
+    --surface-panel: 246 247 249; /* #F6F7F9 */
+    --surface-raised: 255 255 255; /* #FFFFFF */
+    --surface-hover: 230 233 236; /* #E6E9EC */
+    --surface-selected: 226 230 234; /* #E2E6EA */
+    --surface-overlay: 252 253 254; /* #FCFDFE */
+
+    --ink-primary: 20 22 24; /* #141618 */
+    --ink-secondary: 86 92 98; /* #565C62, 6.6:1 on panel */
+    --ink-tertiary: 116 123 130; /* #747B82, 4.6:1 on panel */
+
+    --line-subtle: 224 227 230; /* #E0E3E6 */
+    --line-default: 209 213 218; /* #D1D5DA */
+    --line-strong: 160 166 173; /* #A0A6AD */
+
+    /* ---- Spectrum ---------------------------------------------------------
+       The dispersion ramp: cyan, azure, violet, magenta. Deliberately the cool
+       half of the spread only — a warm stop in a 1px edge does not read as
+       dispersion, it reads as a glow, and it drags every dispersive edge on the
+       page toward looking like a highlight rather than like split light.
+
+       Note this ramp no longer contains the accent. `--wafer-primary` below is
+       warm and is used by the application shell, so it is now a genuinely
+       separate colour rather than a sample of this ramp. */
+    --spectral-cyan: 34 205 232; /* #22CDE8 */
+    --spectral-azure: 64 190 245; /* #40BEF5 */
+    --spectral-violet: 149 104 240; /* #9568F0 */
+    --spectral-magenta: 226 82 196; /* #E252C4 */
+
+    /* ---- Accent (chrome) --------------------------------------------------
+       Achromatic, like every other fill. The accent is the far end of the
+       value range rather than a hue, so "primary" is a position on the same
+       axis as every other surface and the spectrum is left as the only source
+       of colour in the interface. See the accent law in DESIGN.md. */
+    --wafer-primary: 32 35 38; /* #202326 */
+    --wafer-primary-hover: 54 58 63; /* #363A3F, 10.9:1 with primary-content */
+    --wafer-deep: 12 13 14; /* #0C0D0E, for pressed shadows */
+    --accent-foreground: 20 22 24; /* #141618, 16.9:1 on panel */
+    --primary-content: 248 250 252; /* #F8FAFC, 15.1:1 on the accent */
+
+    /* ---- Light ------------------------------------------------------------
+       The two ends of the specular range. Every lit edge and every sheen is
+       built from these plus the spectrum; there are no per-component gradients.
+       On light paper the dark end has to be genuinely dark, or the surface has
+       nowhere to go but white. */
+    --light-specular: 255 255 255;
+    --light-shadow: 88 95 103;
+
+    /* ---- Status -----------------------------------------------------------
+       Status colours sit outside the spectrum on purpose. Meaning must never
+       be confused with light. */
+    --status-success: 22 118 82; /* #167652 */
+    --status-warning: 154 91 12; /* #9A5B0C */
+    --status-danger: 178 46 42; /* #B22E2A */
+    --focus-ring: 21 94 239; /* #155EEF */
+
+    /* ---- Geometry (Precision) --------------------------------------------- */
+    --control-height: 2.5rem;
+    --control-height-compact: 2.25rem;
+    --radius-control: 0.5rem;
+    --radius-surface: 0.625rem;
+    --radius-panel: 0.875rem;
+    --radius-modal: 1rem;
+    --radius-key: 0.5rem;
+    --panel-padding: 0.75rem;
+    --group-gap: 0.75rem;
+    --hairline: 1px;
+
+    /* ---- Motion ----------------------------------------------------------- */
+    --motion-fast: 120ms;
+    --motion-base: 170ms;
+    --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    /* ---- Elevation --------------------------------------------------------- */
+    --elevation-panel: 0 1px 2px rgb(var(--light-shadow) / 0.08);
+    --elevation-popover: 0 8px 24px rgb(16 18 20 / 0.12);
+    --elevation-modal: 0 24px 64px rgb(16 18 20 / 0.2);
+    --key-shadow: 0 1px 0 rgb(var(--line-strong) / 0.55),
+      0 4px 12px rgb(16 18 20 / 0.08);
+    --key-shadow-hover: 0 2px 0 rgb(var(--line-strong) / 0.6),
+      0 8px 18px rgb(16 18 20 / 0.12);
+    --key-shadow-pressed: inset 0 2px 3px rgb(16 18 20 / 0.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      /* Dark is the mark's native environment: a near-black tile is what lets
+         a dispersed edge stay visible at one pixel. */
+      --surface-canvas: 12 13 14; /* #0C0D0E */
+      --surface-panel: 22 23 25; /* #161719 */
+      --surface-raised: 29 31 33; /* #1D1F21 */
+      --surface-hover: 38 40 43; /* #26282B */
+      --surface-selected: 44 47 51; /* #2C2F33 */
+      --surface-overlay: 26 28 30; /* #1A1C1E */
+
+      --ink-primary: 240 242 244; /* #F0F2F4 */
+      --ink-secondary: 168 173 178; /* #A8ADB2, 9.0:1 on panel */
+      --ink-tertiary: 128 134 140; /* #80868C, 5.2:1 on panel */
+
+      --line-subtle: 38 40 43; /* #26282B */
+      --line-default: 52 55 59; /* #34373B */
+      --line-strong: 84 89 95; /* #54595F */
+
+      /* Dispersion on black needs more chroma headroom to survive at 1px. */
+      --spectral-cyan: 94 234 250; /* #5EEAFA */
+      --spectral-azure: 90 214 255; /* #5AD6FF */
+      --spectral-violet: 173 128 255; /* #AD80FF */
+      --spectral-magenta: 255 128 224; /* #FF80E0 */
+
+      /* The accent inverts with the scheme: on dark it is polished chrome, on
+         light it is the ink end. Both are the far end of the same value range,
+         so the accent never becomes a hue in either scheme. */
+      --wafer-primary: 232 236 240; /* #E8ECF0 */
+      --wafer-primary-hover: 255 255 255; /* 19.5:1 with primary-content */
+      --wafer-deep: 150 158 166; /* #969EA6 */
+      --accent-foreground: 240 242 244; /* #F0F2F4, 16.0:1 on panel */
+      --primary-content: 12 13 14; /* #0C0D0E, 16.4:1 on the accent */
+
+      --light-specular: 246 250 252;
+      --light-shadow: 6 8 10;
+
+      --status-success: 106 200 156; /* #6AC89C */
+      --status-warning: 232 173 90; /* #E8AD5A */
+      --status-danger: 240 116 111; /* #F0746F */
+      --focus-ring: 122 170 255; /* #7AAAFF */
+
+      --elevation-panel: 0 1px 2px rgb(0 0 0 / 0.4);
+      --elevation-popover: 0 8px 24px rgb(0 0 0 / 0.5);
+      --elevation-modal: 0 24px 64px rgb(0 0 0 / 0.62);
+      --key-shadow: 0 1px 0 rgb(0 0 0 / 0.7), 0 4px 12px rgb(0 0 0 / 0.36);
+      --key-shadow-hover: 0 2px 0 rgb(0 0 0 / 0.75), 0 8px 18px rgb(0 0 0 / 0.44);
+      --key-shadow-pressed: inset 0 2px 4px rgb(0 0 0 / 0.5);
+    }
+  }
+}
