@@ -70,7 +70,8 @@ const release = releaseData as {
 const assets: ReleaseAsset[] = release.assets ?? [];
 const version = release.tag_name;
 const releasesUrl =
-  release.html_url ?? "https://github.com/oleksandrmaslov/zmk-studio/releases";
+  release.html_url ??
+  "https://github.com/oleksandrmaslov/wafer-zmk-studio/releases";
 const repoUrl = releasesUrl.replace(/\/releases(\/.*)?$/, "");
 
 function detectPlatform(): Platform {
