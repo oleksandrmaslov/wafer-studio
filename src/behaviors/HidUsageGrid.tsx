@@ -308,6 +308,42 @@ export function HidUsageGrid({
         </div>
       )}
 
+      {showModifiers && (
+        <fieldset className="grid gap-2 border-t border-line-subtle pt-3">
+          <legend className="px-1 text-sm font-semibold text-base-content">
+            Chord modifiers
+          </legend>
+          <p className="text-xs leading-relaxed text-base-content/55">
+            {value === undefined
+              ? "Pick a key below, then add modifiers to make it a shortcut."
+              : "Held with the key above. Ctrl + C, Cmd + Shift + 4, and so on."}
+          </p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {HID_IMPLICIT_MODIFIERS.map((modifier) => {
+              const pressed = (modifierMask & modifier.mask) === modifier.mask;
+
+              return (
+                <button
+                  key={modifier.id}
+                  type="button"
+                  aria-label={modifier.label}
+                  aria-pressed={pressed}
+                  disabled={disabled || value === undefined}
+                  onClick={() => toggleModifier(modifier.mask)}
+                  className={`grid min-h-10 place-items-center rounded-md border px-1 text-center text-[0.625rem] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40 ${
+                    pressed
+                      ? "border-line-strong bg-selected text-accent-foreground"
+                      : "border-line-subtle bg-transparent text-base-content/60 hover:border-line hover:bg-hover hover:text-base-content"
+                  }`}
+                >
+                  {modifier.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
       <div
         ref={catalogRef}
         id={`${instanceId}-hid-catalog`}
@@ -379,42 +415,6 @@ export function HidUsageGrid({
           </div>
         )}
       </div>
-
-      {showModifiers && (
-        <fieldset className="grid gap-2 border-t border-line-subtle pt-3">
-          <legend className="px-1 text-sm font-semibold text-base-content">
-            Chord modifiers
-          </legend>
-          <p className="text-xs leading-relaxed text-base-content/55">
-            {value === undefined
-              ? "Choose a key before adding chord modifiers."
-              : "Add modifiers to send a keyboard shortcut from this key."}
-          </p>
-          <div className="grid grid-cols-4 gap-1.5">
-            {HID_IMPLICIT_MODIFIERS.map((modifier) => {
-              const pressed = (modifierMask & modifier.mask) === modifier.mask;
-
-              return (
-                <button
-                  key={modifier.id}
-                  type="button"
-                  aria-label={modifier.label}
-                  aria-pressed={pressed}
-                  disabled={disabled || value === undefined}
-                  onClick={() => toggleModifier(modifier.mask)}
-                  className={`grid min-h-10 place-items-center rounded-md border px-1 text-center text-[0.625rem] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40 ${
-                    pressed
-                      ? "border-line-strong bg-selected text-accent-foreground"
-                      : "border-line-subtle bg-transparent text-base-content/60 hover:border-line hover:bg-hover hover:text-base-content"
-                  }`}
-                >
-                  {modifier.shortLabel}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-      )}
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {selectionDescription

@@ -25,6 +25,7 @@ import type {
 
 import { LayerPicker } from "./LayerPicker";
 import { SelectField } from "../design-system/SelectField";
+import { useCommands, type Command } from "../design-system/commandRegistry";
 import { PhysicalLayoutPicker } from "./PhysicalLayoutPicker";
 import { Keymap as KeymapComp } from "./Keymap";
 import { useConnectedDeviceData } from "../rpc/useConnectedDeviceData";
@@ -59,11 +60,14 @@ import {
   FlipHorizontal,
   Keyboard as Keyboard2,
   Maximize2,
+  Minus,
+  Plus,
   X,
 } from "lucide-react";
 import {
   bindingEquals,
   countDraftBindings,
+  draftedPositions as draftedPositionsFor,
   DraftApplyResult,
   DraftBindingOverrides,
   DraftValidationResult,
@@ -697,6 +701,15 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
   const shelfOpen = selectedKeyPosition !== undefined && !!selectedBinding;
 
+  // What the draft has touched on the layer you are looking at, so unsent work
+  // is visible on the board instead of only inside the review dialog.
+  const draftedOnLayer = useMemo(() => {
+    const layerId = keymap?.layers[selectedLayerIndex]?.id;
+    return layerId === undefined
+      ? undefined
+      : draftedPositionsFor(draftBindings, layerId);
+  }, [draftBindings, keymap, selectedLayerIndex]);
+
   /**
    * Copy every binding from another layer onto this one.
    *
@@ -751,44 +764,6 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     return mirrorPosition(layout, selectedKeyPosition);
   }, [layouts, selectedPhysicalLayoutIndex, selectedKeyPosition]);
 
-  /**
-   * Put this key's binding on its opposite number, handedness flipped.
-   *
-   * Only parameters the behavior declares as HID usages are mirrored — a layer
-   * index or a Bluetooth profile number has no handedness, and running it
-   * through the modifier flip would corrupt it.
-   */
-  const mirrorSelectedKey = useCallback(() => {
-    if (!selectedBinding || mirrorTarget === undefined) return;
-
-    const behavior = behaviors[selectedBinding.behaviorId];
-    const layerIds = keymap?.layers.map(({ id }) => id) ?? [];
-    const set =
-      behavior?.metadata.find((candidate) =>
-        validateValue(layerIds, selectedBinding.param1, candidate.param1),
-      ) ?? behavior?.metadata[0];
-
-    const param1IsUsage = set?.param1?.some(
-      (value) => value.hidUsage !== undefined,
-    );
-    const param2IsUsage = set?.param2?.some(
-      (value) => value.hidUsage !== undefined,
-    );
-
-    doUpdateBinding(
-      {
-        ...selectedBinding,
-        param1: param1IsUsage
-          ? mirrorUsage(selectedBinding.param1)
-          : selectedBinding.param1,
-        param2: param2IsUsage
-          ? mirrorUsage(selectedBinding.param2)
-          : selectedBinding.param2,
-      },
-      mirrorTarget,
-    );
-  }, [behaviors, doUpdateBinding, keymap, mirrorTarget, selectedBinding]);
-
   // ---- Bulk apply ---------------------------------------------------------
   //
   // Setting home-row mods is eight keys that each have to become a mod-tap
@@ -806,6 +781,125 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     label: string;
   } | null>(null);
 
+  const order = useMemo(() => {
+    const layout = layouts?.[selectedPhysicalLayoutIndex];
+    return layout ? readingOrder(layout) : [];
+  }, [layouts, selectedPhysicalLayoutIndex]);
+
+  /**
+   * Selected keys, always including the primary one.
+   *
+   * The primary (`selectedKeyPosition`) is the key the inspector describes and
+   * the one type-through advances; the set is who an edit actually lands on.
+   * Keeping them separate means every existing single-key path keeps working
+   * untouched, and multi-select is purely additive.
+   */
+  const [selection, setSelection] = useState<ReadonlySet<number>>(new Set());
+
+  const selectedPositions = useMemo(() => {
+    if (selectedKeyPosition === undefined) return new Set<number>();
+    return selection.has(selectedKeyPosition)
+      ? selection
+      : new Set([selectedKeyPosition]);
+  }, [selection, selectedKeyPosition]);
+
+  /**
+   * Write one binding to a key, preserving that key's own usage as the tap
+   * when the incoming behavior is a hold-tap.
+   *
+   * This is the rule bulk apply was built on — paint mod-tap across the home
+   * row and every key keeps its own letter — and multi-select needs exactly the
+   * same thing, so it lives in one place rather than two.
+   */
+  const applyWrapped = useCallback(
+    (binding: BehaviorBinding, position: number, keepTap: boolean) => {
+      const existing = keymap?.layers[selectedLayerIndex]?.bindings[position];
+      const existingBehavior = existing
+        ? behaviors[existing.behaviorId]
+        : undefined;
+      const incoming = behaviors[binding.behaviorId];
+      const keeps =
+        keepTap &&
+        existing !== undefined &&
+        existingBehavior !== undefined &&
+        incoming !== undefined &&
+        isMultiBehavior(incoming) &&
+        isCanonicalKeyPress(existingBehavior);
+
+      doUpdateBinding(
+        keeps ? { ...binding, param2: existing.param1 } : binding,
+        position,
+      );
+    },
+    [behaviors, doUpdateBinding, keymap, selectedLayerIndex],
+  );
+
+  /**
+   * What the inspector calls. With one key selected this is the old behaviour;
+   * with several it fans out, wrapping hold-taps so eight home-row keys each
+   * keep their own letter in a single choice.
+   */
+  const onBindingChanged = useCallback(
+    (binding: BehaviorBinding) => {
+      if (selectedPositions.size <= 1) {
+        doUpdateBinding(binding);
+        return;
+      }
+      for (const position of selectedPositions) {
+        applyWrapped(binding, position, true);
+      }
+    },
+    [applyWrapped, doUpdateBinding, selectedPositions],
+  );
+
+  /**
+   * Mirror every selected key at once.
+   *
+   * This is what makes the feature worth having: select the four home-row mods
+   * on one half, mirror, and the other half gets them with the handedness
+   * flipped — which is the single most common symmetric edit on a split board.
+   */
+  const mirrorSelection = useCallback(() => {
+    const layout = layouts?.[selectedPhysicalLayoutIndex];
+    if (!layout || !keymap) return;
+
+    const layerIds = keymap.layers.map(({ id }) => id);
+    for (const position of selectedPositions) {
+      const target = mirrorPosition(layout, position);
+      if (target === undefined) continue;
+
+      const binding = keymap.layers[selectedLayerIndex]?.bindings[position];
+      if (!binding) continue;
+
+      const behavior = behaviors[binding.behaviorId];
+      const set =
+        behavior?.metadata.find((candidate) =>
+          validateValue(layerIds, binding.param1, candidate.param1),
+        ) ?? behavior?.metadata[0];
+
+      doUpdateBinding(
+        {
+          ...binding,
+          param1: set?.param1?.some((v) => v.hidUsage !== undefined)
+            ? mirrorUsage(binding.param1)
+            : binding.param1,
+          param2: set?.param2?.some((v) => v.hidUsage !== undefined)
+            ? mirrorUsage(binding.param2)
+            : binding.param2,
+        },
+        target,
+      );
+    }
+  }, [
+    behaviors,
+    doUpdateBinding,
+    keymap,
+    layouts,
+    selectedLayerIndex,
+    selectedPhysicalLayoutIndex,
+    selectedPositions,
+  ]);
+
   const paintIsHoldTap = useMemo(() => {
     if (!paint) return false;
     const behavior = behaviors[paint.binding.behaviorId];
@@ -813,29 +907,41 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
   }, [behaviors, paint]);
 
   const onKeyPositionClicked = useCallback(
-    (position: number) => {
-      if (!paint || !keymap) {
+    (position: number, event: React.MouseEvent) => {
+      if (paint && keymap) {
+        applyWrapped(paint.binding, position, paint.keepTap);
+        return;
+      }
+
+      // Shift extends in *reading* order, not array order — the run you see
+      // between two keys, which on a split is not the run the binding array
+      // would give you. Ctrl/Cmd toggles one key. A plain click starts over.
+      if (event.shiftKey && selectedKeyPosition !== undefined) {
+        const from = order.indexOf(selectedKeyPosition);
+        const to = order.indexOf(position);
+        if (from !== -1 && to !== -1) {
+          const [lo, hi] = from <= to ? [from, to] : [to, from];
+          setSelection(new Set(order.slice(lo, hi + 1)));
+          setSelectedKeyPosition(position);
+          return;
+        }
+      }
+
+      if (event.metaKey || event.ctrlKey) {
+        setSelection((current) => {
+          const next = new Set(current);
+          if (next.has(position) && next.size > 1) next.delete(position);
+          else next.add(position);
+          return next;
+        });
         setSelectedKeyPosition(position);
         return;
       }
 
-      const existing = keymap.layers[selectedLayerIndex]?.bindings[position];
-      const existingBehavior = existing
-        ? behaviors[existing.behaviorId]
-        : undefined;
-      const keepsTap =
-        paint.keepTap &&
-        existingBehavior !== undefined &&
-        isCanonicalKeyPress(existingBehavior);
-
-      doUpdateBinding(
-        keepsTap
-          ? { ...paint.binding, param2: existing.param1 }
-          : paint.binding,
-        position,
-      );
+      setSelection(new Set([position]));
+      setSelectedKeyPosition(position);
     },
-    [behaviors, doUpdateBinding, keymap, paint, selectedLayerIndex],
+    [applyWrapped, keymap, order, paint, selectedKeyPosition],
   );
 
   // ---- Type-through -------------------------------------------------------
@@ -846,32 +952,59 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     return match?.id;
   }, [behaviors]);
 
-  const order = useMemo(() => {
-    const layout = layouts?.[selectedPhysicalLayoutIndex];
-    return layout ? readingOrder(layout) : [];
-  }, [layouts, selectedPhysicalLayoutIndex]);
-
   const canTypeThrough = keyPressBehaviorId !== undefined && order.length > 0;
 
   useEffect(() => {
     if (!isTyping || keyPressBehaviorId === undefined) return;
 
+    /**
+     * A modifier is bound on *release*, and only if nothing was pressed while
+     * it was held.
+     *
+     * Binding it on keydown was wrong in a way that made the mode unusable:
+     * reaching for Ctrl+Arrow to skip a key wrote Ctrl onto the key you were
+     * standing on first, every single time, because the two presses are never
+     * simultaneous. Press-and-release binds the modifier; press-and-hold makes
+     * it a chord. That is exactly the tap/hold rule these keyboards run on.
+     */
+    let pendingModifier: { code: string; target: number } | null = null;
+
+    const bind = (usage: number, target: number) => {
+      doUpdateBinding(
+        { behaviorId: keyPressBehaviorId, param1: usage >>> 0, param2: 0 },
+        target,
+      );
+      setSelectedKeyPosition(stepPosition(order, target, 1));
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
-      // A chord is a command; a bare press is a binding. Checking the code
-      // rather than only the modifier flags matters because pressing Control
-      // on its own already reports ctrlKey — and that press has to stay
-      // bindable, or the mode cannot bind modifiers at all.
-      const chord =
-        (event.ctrlKey || event.metaKey || event.altKey) &&
-        !isModifierCode(event.code);
+      // Auto-repeat would otherwise walk a held key across the whole board.
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
 
       if (event.key === "Escape") {
         event.preventDefault();
+        pendingModifier = null;
         setIsTyping(false);
         return;
       }
 
-      if (chord) {
+      const target = selectedKeyPosition ?? order[0];
+      if (target === undefined) return;
+
+      if (isModifierCode(event.code)) {
+        // Undecided until it is released or something else is pressed.
+        pendingModifier = { code: event.code, target };
+        event.preventDefault();
+        return;
+      }
+
+      // Anything else arriving proves a held modifier was a chord after all.
+      pendingModifier = null;
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
         if (event.code === "ArrowRight" || event.code === "Tab") {
           event.preventDefault();
           setSelectedKeyPosition((current) => stepPosition(order, current, 1));
@@ -886,21 +1019,36 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       if (usage === undefined) return;
 
       event.preventDefault();
-      const target = selectedKeyPosition ?? order[0];
-      if (target === undefined) return;
+      bind(usage, target);
+    };
 
-      doUpdateBinding(
-        { behaviorId: keyPressBehaviorId, param1: usage >>> 0, param2: 0 },
-        target,
-      );
-      setSelectedKeyPosition(stepPosition(order, target, 1));
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (!pendingModifier || event.code !== pendingModifier.code) return;
+      const { target } = pendingModifier;
+      pendingModifier = null;
+
+      const usage = usageForCode(event.code);
+      if (usage === undefined) return;
+      event.preventDefault();
+      bind(usage, target);
+    };
+
+    // A modifier still held when the window loses focus never sends its keyup,
+    // and would otherwise bind the next time focus came back.
+    const onBlur = () => {
+      pendingModifier = null;
     };
 
     // Capture, so the binding is taken before any focused control in the page
     // can consume the key as ordinary text input.
     window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () =>
+    window.addEventListener("keyup", onKeyUp, { capture: true });
+    window.addEventListener("blur", onBlur);
+    return () => {
       window.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("keyup", onKeyUp, { capture: true });
+      window.removeEventListener("blur", onBlur);
+    };
   }, [
     isTyping,
     keyPressBehaviorId,
@@ -1138,6 +1286,95 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     [conn, undoRedo],
   );
 
+  // Registered where the state is, not handed upward. Everything here is
+  // reachable from the rails too — the palette exists so that rare actions do
+  // not have to earn a permanent button to stay findable.
+  const keyboardCommands = useMemo<Command[]>(() => {
+    const structureLocked = countDraftBindings(draftBindings) > 0;
+    const list: Command[] = [
+      {
+        id: "kb.typeThrough",
+        label: "Type through the board",
+        section: "Keymap",
+        icon: Keyboard2,
+        keywords: "bind fast type listen",
+        disabled: !canTypeThrough || isApplyingDraft,
+        run: () => {
+          setSelectedKeyPosition((current) => current ?? order[0]);
+          setIsTyping(true);
+        },
+      },
+      {
+        id: "kb.fit",
+        label: "Fit keyboard to viewport",
+        section: "View",
+        icon: Maximize2,
+        keywords: "zoom scale",
+        run: () => setKeymapScale("auto"),
+      },
+      {
+        id: "kb.addLayer",
+        label: "Add layer",
+        section: "Layers",
+        icon: Plus,
+        disabled: (keymap?.availableLayers || 0) === 0 || structureLocked,
+        run: () => void addLayer(),
+      },
+      {
+        id: "kb.removeLayer",
+        label: "Remove current layer",
+        section: "Layers",
+        icon: Minus,
+        hint: "restorable",
+        destructive: true,
+        disabled: (keymap?.layers?.length || 0) <= 1 || structureLocked,
+        run: () => void removeLayer(),
+      },
+    ];
+
+    if (mirrorTarget !== undefined && selectedBinding) {
+      list.push({
+        id: "kb.mirror",
+        label: "Mirror key to the opposite side",
+        section: "Keymap",
+        icon: FlipHorizontal,
+        keywords: "symmetry handedness",
+        disabled: isApplyingDraft,
+        run: mirrorSelection,
+      });
+    }
+
+    for (const [index, layer] of (keymap?.layers ?? []).entries()) {
+      if (index === selectedLayerIndex) continue;
+      list.push({
+        id: `kb.copyFrom.${layer.id}`,
+        label: `Copy bindings from ${layer.name || `Layer ${index}`}`,
+        section: "Layers",
+        icon: Copy,
+        disabled: isApplyingDraft,
+        run: () => copyLayerFrom(index),
+      });
+    }
+
+    return list;
+  }, [
+    addLayer,
+    canTypeThrough,
+    copyLayerFrom,
+    draftBindings,
+    isApplyingDraft,
+    keymap,
+    mirrorSelection,
+    mirrorTarget,
+    order,
+    removeLayer,
+    selectedBinding,
+    selectedLayerIndex,
+    setKeymapScale,
+  ]);
+
+  useCommands(keyboardCommands);
+
   useEffect(() => {
     if (!keymap?.layers) return;
 
@@ -1284,6 +1521,8 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               scale={keymapScale}
               selectedLayerIndex={selectedLayerIndex}
               selectedKeyPosition={selectedKeyPosition}
+              draftedPositions={draftedOnLayer}
+              selectedPositions={selectedPositions}
               onKeyPositionClicked={onKeyPositionClicked}
             />
           ) : (
@@ -1305,8 +1544,8 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
             disappears once a key is selected and the rail says it instead. */}
         {!shelfOpen && !isTyping && layouts && keymap && behaviors && (
           <p className="pointer-events-none absolute inset-x-0 bottom-3 px-4 text-center text-xs text-tertiary">
-            Select a key to bind it. Nothing reaches the keyboard until you
-            review the draft.
+            Select a key to bind it — shift-click for a run, ⌘/Ctrl-click to add
+            one. Nothing reaches the keyboard until you review the draft.
           </p>
         )}
 
@@ -1326,7 +1565,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               {typedCount}/{order.length}
             </span>
             <span className="hidden text-tertiary sm:inline">
-              press a key to bind it · ⌘/Ctrl + ← → to skip · Esc to finish
+              press a key to bind it · hold ⌘/Ctrl + ← → to skip · Esc to finish
             </span>
             <button
               type="button"
@@ -1403,12 +1642,21 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
                       `Layer ${selectedLayerIndex}`}
                   </p>
                   <h2 className="truncate font-semibold text-ink">
-                    Bind key {(selectedKeyPosition ?? 0) + 1}
+                    {selectedPositions.size > 1
+                      ? `Bind ${selectedPositions.size} keys`
+                      : `Bind key ${(selectedKeyPosition ?? 0) + 1}`}
                   </h2>
-                  {selectedBindingDescription && (
+                  {selectedPositions.size > 1 ? (
                     <p className="truncate text-xs text-muted">
-                      {selectedBindingDescription}
+                      Applies to every selected key. Hold-taps keep each key's
+                      own letter as the tap.
                     </p>
+                  ) : (
+                    selectedBindingDescription && (
+                      <p className="truncate text-xs text-muted">
+                        {selectedBindingDescription}
+                      </p>
+                    )
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -1419,7 +1667,10 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
                     type="button"
                     aria-label="Clear key selection"
                     title="Clear selection (Esc)"
-                    onClick={() => setSelectedKeyPosition(undefined)}
+                    onClick={() => {
+                      setSelectedKeyPosition(undefined);
+                      setSelection(new Set());
+                    }}
                     className="grid size-9 place-items-center rounded-control text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     <X aria-hidden="true" className="size-4" />
@@ -1452,7 +1703,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
                   <button
                     type="button"
                     title={`Copy to key ${mirrorTarget + 1}, swapping left and right modifiers`}
-                    onClick={mirrorSelectedKey}
+                    onClick={mirrorSelection}
                     disabled={isApplyingDraft}
                     className="flex min-h-8 items-center gap-1.5 rounded-control px-2 text-xs font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40"
                   >
@@ -1474,7 +1725,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
                     name: name || li.toLocaleString(),
                   }))}
                   isDisabled={isApplyingDraft}
-                  onBindingChanged={doUpdateBinding}
+                  onBindingChanged={onBindingChanged}
                 />
               )}
             </div>

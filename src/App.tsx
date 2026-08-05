@@ -5,7 +5,15 @@ import { call_rpc } from "./rpc/logging";
 
 import type { Notification } from "@zmkfirmware/zmk-studio-ts-client/studio";
 import { ConnectionState, ConnectionContext } from "./rpc/ConnectionContext";
-import { Dispatch, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Dispatch,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Info, TriangleAlert, Unplug } from "lucide-react";
 import { ConnectModal, TransportFactory } from "./ConnectModal";
 
 import type { RpcTransport } from "@zmkfirmware/zmk-studio-ts-client/transport/index";
@@ -34,6 +42,8 @@ import type {
   KeymapDraftController,
 } from "./keyboard/keymapDraft";
 import { useWaferFinish } from "./appearance";
+import { CommandPaletteProvider } from "./design-system/CommandPalette";
+import { useCommands, type Command } from "./design-system/commandRegistry";
 
 declare global {
   interface Window {
@@ -173,6 +183,61 @@ async function connect(
   );
   setConnectionError(undefined);
   setConn({ conn });
+}
+
+/**
+ * Connection and firmware commands.
+ *
+ * A child component rather than part of `App`, because registering requires the
+ * context that `App` itself provides — and because this is exactly where the
+ * destructive pair belongs: out of the header menu where `resetSettings` sat
+ * two rows below "About".
+ */
+function ShellCommands({
+  onDisconnect,
+  onResetSettings,
+  onShowAbout,
+  connected,
+}: {
+  onDisconnect: () => void;
+  onResetSettings: () => void;
+  onShowAbout: () => void;
+  connected: boolean;
+}) {
+  const commands = useMemo<Command[]>(
+    () => [
+      {
+        id: "shell.about",
+        label: "About Wafer Studio",
+        section: "Application",
+        icon: Info,
+        run: onShowAbout,
+      },
+      {
+        id: "shell.disconnect",
+        label: "Disconnect keyboard",
+        section: "Connection",
+        icon: Unplug,
+        disabled: !connected,
+        run: onDisconnect,
+      },
+      {
+        id: "shell.reset",
+        label: "Reset keyboard settings",
+        section: "Connection",
+        icon: TriangleAlert,
+        keywords: "erase wipe factory defaults",
+        hint: "cannot be undone",
+        destructive: true,
+        disabled: !connected,
+        run: onResetSettings,
+      },
+    ],
+    [connected, onDisconnect, onResetSettings, onShowAbout],
+  );
+
+  useCommands(commands);
+  return null;
 }
 
 function App() {
@@ -357,30 +422,38 @@ function App() {
             open={showLicenseNotice}
             onClose={() => setShowLicenseNotice(false)}
           />
-          <div className="grid h-[100dvh] min-h-0 w-full max-w-[100vw] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base-100 text-base-content">
-            <AppHeader
-              connectedDeviceLabel={connectedDeviceName}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={undo}
-              onRedo={redo}
-              onSave={save}
-              onDiscard={discard}
+          <CommandPaletteProvider>
+            <ShellCommands
+              connected={Boolean(conn.conn)}
               onDisconnect={disconnect}
               onResetSettings={resetSettings}
               onShowAbout={() => setShowAbout(true)}
-              onShowLicenseNotice={() => setShowLicenseNotice(true)}
-              waferFinish={waferFinish}
-              onWaferFinishChange={setWaferFinish}
-              draftCount={draftController?.draftCount || 0}
-              draftChanges={draftController?.changes || []}
-              draftErrors={draftController?.errors || []}
-              draftIsApplying={draftController?.isApplying || false}
-              onApplyDraft={applyDraft}
-              onDiscardDraft={discardDraft}
             />
-            <Keyboard onDraftStateChange={setDraftController} />
-          </div>
+            <div className="grid h-[100dvh] min-h-0 w-full max-w-[100vw] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base-100 text-base-content">
+              <AppHeader
+                connectedDeviceLabel={connectedDeviceName}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={undo}
+                onRedo={redo}
+                onSave={save}
+                onDiscard={discard}
+                onDisconnect={disconnect}
+                onResetSettings={resetSettings}
+                onShowAbout={() => setShowAbout(true)}
+                onShowLicenseNotice={() => setShowLicenseNotice(true)}
+                waferFinish={waferFinish}
+                onWaferFinishChange={setWaferFinish}
+                draftCount={draftController?.draftCount || 0}
+                draftChanges={draftController?.changes || []}
+                draftErrors={draftController?.errors || []}
+                draftIsApplying={draftController?.isApplying || false}
+                onApplyDraft={applyDraft}
+                onDiscardDraft={discardDraft}
+              />
+              <Keyboard onDraftStateChange={setDraftController} />
+            </div>
+          </CommandPaletteProvider>
         </UndoRedoContext.Provider>
       </LockStateContext.Provider>
     </ConnectionContext.Provider>

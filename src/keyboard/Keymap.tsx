@@ -5,6 +5,7 @@ import {
 import type { GetBehaviorDetailsResponse } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
 import type { BehaviorBinding } from "@zmkfirmware/zmk-studio-ts-client/keymap";
 
+import type React from "react";
 import { PhysicalLayout as PhysicalLayoutComp } from "./PhysicalLayout";
 import type { LayoutZoom } from "./layoutZoom";
 import { HidUsageLabel } from "./HidUsageLabel";
@@ -115,7 +116,9 @@ export interface KeymapProps {
   scale: LayoutZoom;
   selectedLayerIndex: number;
   selectedKeyPosition: number | undefined;
-  onKeyPositionClicked: (keyPosition: number) => void;
+  draftedPositions?: ReadonlySet<number>;
+  selectedPositions?: ReadonlySet<number>;
+  onKeyPositionClicked: (keyPosition: number, event: React.MouseEvent) => void;
 }
 
 export const Keymap = ({
@@ -125,6 +128,8 @@ export const Keymap = ({
   scale,
   selectedLayerIndex,
   selectedKeyPosition,
+  draftedPositions,
+  selectedPositions,
   onKeyPositionClicked,
 }: KeymapProps) => {
   if (!keymap.layers[selectedLayerIndex]) {
@@ -169,6 +174,8 @@ export const Keymap = ({
       hoverZoom={true}
       zoom={scale}
       selectedPosition={selectedKeyPosition}
+      draftedPositions={draftedPositions}
+      selectedPositions={selectedPositions}
       onPositionClicked={onKeyPositionClicked}
     />
   );

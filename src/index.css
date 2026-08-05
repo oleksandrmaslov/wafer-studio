@@ -467,6 +467,39 @@
       var(--key-shadow);
   }
 
+  /* Also selected, but not the key the inspector is describing. Quieter than
+     the primary — a wash and a border rather than the full spectral ring — so
+     it is obvious at a glance which of eight selected keys the panel on the
+     right is actually talking about. */
+  .wafer-key[data-co-selected] {
+    border-color: rgb(var(--light-specular) / 0.3);
+    background-color: rgb(var(--surface-hover));
+  }
+
+  /* A key changed in the draft and not yet sent. A corner mark rather than a
+     ring, so it can coexist with selection on the same key — you need to see
+     both at once, since the key you are editing is by definition the key you
+     just changed. Cut from the same field as everything else, so a row of
+     edited keys shows the spectrum sweeping across it. */
+  .wafer-key[data-drafted]::after {
+    position: absolute;
+    z-index: 3;
+    top: 3px;
+    right: 3px;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background-image: var(--key-light-field), var(--key-spectrum-field);
+    content: "";
+    opacity: clamp(
+      0,
+      calc(0.9 * var(--dispersion-gain) * var(--light-presence)),
+      1
+    );
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgb(var(--surface-raised) / 0.9);
+  }
+
   /* Uses `.wafer-key-field` rather than the viewport-space fields: the board is
      inside a transform, which breaks `background-attachment: fixed`. See the
      board-space note in dispersion.css. */
@@ -476,6 +509,7 @@
     inset: -2px;
     padding: 2px;
     border-radius: calc(var(--radius-key) + 1px);
+    background-image: var(--key-light-field), var(--key-spectrum-field);
     content: "";
     opacity: clamp(0, calc(var(--dispersion-gain) * var(--light-presence)), 1);
     pointer-events: none;

@@ -204,6 +204,25 @@ export function rebaseDraftBindings(
   return next;
 }
 
+/**
+ * Key positions changed on one layer, for marking them on the canvas.
+ *
+ * Until now the only way to see what a draft contained was to open the review
+ * dialog. On a board where you have just typed through forty keys that is the
+ * difference between trusting the tool and checking it by hand.
+ */
+export function draftedPositions(
+  draft: DraftBindingOverrides,
+  layerId: number,
+): ReadonlySet<number> {
+  const positions = new Set<number>();
+  for (const key of Object.keys(draft)) {
+    const location = parseLocationKey(key);
+    if (location?.layerId === layerId) positions.add(location.keyPosition);
+  }
+  return positions;
+}
+
 export function countDraftBindings(draft: DraftBindingOverrides): number {
   return Object.keys(draft).length;
 }

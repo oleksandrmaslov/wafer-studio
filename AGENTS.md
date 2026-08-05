@@ -77,6 +77,19 @@ counted padding as usable space, scaling the board too large so it overflowed
 and grew a scrollbar. It now subtracts the computed padding. If Fit ever looks
 wrong again, look here first.
 
+**A wedged dev server looks exactly like a code bug.** If a syntax error lands
+mid-edit, Vite can keep serving an *empty body* for that module afterwards —
+HTTP 200, zero bytes — so React never mounts and the app is a white screen while
+`tsc`, ESLint and `vite build` are all clean. Diagnose by checking the served
+bytes, not the status code:
+`curl -s http://localhost:5173/src/keyboard/Keyboard.tsx | wc -c`. Zero means
+restart the server and `rm -rf node_modules/.vite`. This cost an hour.
+
+**To find a real render crash without a browser**, bundle the app with esbuild
+and run `renderToString` in Node behind a small DOM shim. It surfaces
+render-phase throws and invalid element types, though not effects. That is how
+`SelectField`, `HidUsageGrid`, `Key` and the whole `App` were each cleared here.
+
 **A transformed ancestor silently breaks `background-attachment: fixed`.** This
 is the nastiest one in the project, because nothing errors — the effect just
 quietly stops being global. The board is inside `transform: scale()`, so every
@@ -113,6 +126,62 @@ under `--max-warnings 0`. Put shared helpers in a `.ts` module.
 ## 5. Decisions, newest first
 
 Reversals are recorded with their reasons so nobody re-litigates them.
+
+### Multi-select is additive, not a rewrite
+`selectedKeyPosition` stays the *primary* — the key the inspector describes and
+the one type-through advances. `selection` is a separate set of who an edit
+actually lands on, and `selectedPositions` guarantees the primary is in it. That
+split is why every existing single-key path kept working untouched.
+
+Shift extends in **reading order**, not array order — the run you see between
+two keys, which on a split is not the run the binding array would give you.
+⌘/Ctrl toggles one key; a plain click starts over.
+
+`applyWrapped` is now the single home of the hold-tap wrap rule (each key keeps
+its own usage as the tap), shared by bulk apply and by multi-select — select the
+eight home-row keys, choose mod-tap once, and every key keeps its own letter.
+`mirrorSelection` does the same across a selection, which is the four-mods-at-
+once case that makes mirror worth having.
+
+### The command palette registers, it does not declare
+`commandRegistry.ts` + `CommandPalette.tsx`. Components register their own
+commands with `useCommands(memoisedArray)` — layer operations from `Keyboard`,
+connection and firmware from `App`'s `ShellCommands`. A central list would have
+forced three components to hand their callbacks upward just to be listed.
+**Memoise the array**, or every parent render re-registers.
+
+Destructive commands sort last, are styled as danger, and take two presses (arm,
+then confirm). Weaker than a typed confirmation, stronger than a menu row —
+chosen because the palette is muscle memory and muscle memory is exactly what
+fires an unintended `resetSettings`. That is also why `resetSettings` moved here
+out of the header menu where it sat two rows from "About".
+
+Note the filename: `commandRegistry.ts`, not `commandPalette.ts` — the latter
+collides with `CommandPalette.tsx` on a case-insensitive filesystem and TS
+errors with "differs only in casing".
+
+### Type-through binds modifiers on release, not on press
+Binding a modifier on keydown made the mode unusable: reaching for Ctrl+Arrow to
+skip a key wrote Ctrl onto the key you were standing on first, every time,
+because the two presses are never simultaneous. A modifier is now held pending
+and bound only if it is *released* with nothing pressed in between —
+press-and-release binds, press-and-hold is a chord. Same tap/hold rule the
+keyboards run on. `event.repeat` is also ignored, or a held key walks itself
+across the board, and a pending modifier is dropped on window blur since a
+modifier held through a focus change never sends its keyup.
+
+### Drafted keys are marked on the board
+`draftedPositions()` in `keymapDraft.ts` gives the changed positions for a
+layer; `Key` renders a small spectral dot for them. Before this, the only way to
+see what a draft held was the review dialog — no good after typing through forty
+keys. It is a corner mark rather than a ring so it coexists with selection,
+since the key you are editing is by definition one you just changed.
+
+Note the trap it exposed: `.wafer-key` sets the `background` *shorthand*, which
+resets `background-image`, and pseudo-elements do not inherit `background-image`
+anyway. `.wafer-key-field` therefore publishes `--key-light-field` and
+`--key-spectrum-field` as custom properties — those *do* inherit — and each
+pseudo-element paints its own gradient from them.
 
 ### Floating panes, and the light goes out rather than home
 Panes are `.wafer-float` cards on a continuous lit substrate, not full-bleed
@@ -225,7 +294,7 @@ split in Node. Do that rather than guessing.
 ## 7. What is next
 
 From `UX.md` §6b and §7, in value order. Type-through, bulk apply, copy-from-layer
-and mirror are built; these are not:
+mirror, the command palette and multi-select are built; these are not:
 
 1. **Starter layouts — alpha block only.** See `LAYOUTS.md` §5 before starting.
    Summary: do *not* ship "apply Miryoku". Miryoku-class layouts are built on
@@ -237,11 +306,10 @@ and mirror are built; these are not:
    no timing coupling, and is the safe 80%. Identify the block by *detecting an
    existing known layout and permuting positionally*, not by guessing geometry —
    and decline when nothing is recognised.
-2. **Command palette** (⌘K) for every rare action, so the rails can stay small.
-3. **Multi-select** — shift-click and marquee, then bind once.
-4. **Destructive-action hygiene** — `resetSettings` currently sits in the same
-   header menu as "About", two rows apart. Move it behind the palette with a
-   typed confirmation, and wire an undo toast to `restoreLayer` after a delete.
+2. **Consumer-key prominence** in the picker, and chroma on hover / active
+   layer.
+3. **Undo toast wired to `restoreLayer`** after a layer delete — the protocol
+   supports restoring, but nothing offers it at the moment it is wanted.
 
 Known open questions, none yet answered by observation: whether the key grid
 fits the 21rem rail; how the three panes stack at ~330px; whether the browser

@@ -1,13 +1,18 @@
+import type React from "react";
 import { PropsWithChildren } from "react";
 import BehaviorShortNames from "./behavior-short-names.json";
 
 interface KeyProps {
   selected?: boolean;
+  /** Changed in the current draft and not yet sent to the keyboard. */
+  drafted?: boolean;
+  /** In the multi-selection, but not the key the inspector is editing. */
+  coSelected?: boolean;
   width: number;
   height: number;
   oneU: number;
   header?: string;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent) => void;
 }
 
 interface BehaviorShortName {
@@ -36,6 +41,8 @@ const shortenHeader = (header: string | undefined) => {
 
 export const Key = ({
   selected = false,
+  drafted = false,
+  coSelected = false,
   width,
   height,
   oneU,
@@ -54,6 +61,8 @@ export const Key = ({
       }`}
       data-interactive={Boolean(onClick)}
       data-selected={selected}
+      data-drafted={drafted || undefined}
+      data-co-selected={coSelected || undefined}
       aria-pressed={onClick ? selected : undefined}
       aria-hidden={onClick ? undefined : true}
       tabIndex={onClick ? undefined : -1}

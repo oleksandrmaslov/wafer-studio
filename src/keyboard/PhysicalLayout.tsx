@@ -1,3 +1,4 @@
+import type React from "react";
 import {
   CSSProperties,
   PropsWithChildren,
@@ -23,10 +24,14 @@ export type KeyPosition = PropsWithChildren<{
 interface PhysicalLayoutProps {
   positions: Array<KeyPosition>;
   selectedPosition?: number;
+  /** Key positions with unsent draft changes on the visible layer. */
+  draftedPositions?: ReadonlySet<number>;
+  /** Every key in the multi-selection, including the primary one. */
+  selectedPositions?: ReadonlySet<number>;
   oneU?: number;
   hoverZoom?: boolean;
   zoom?: LayoutZoom;
-  onPositionClicked?: (position: number) => void;
+  onPositionClicked?: (position: number, event: React.MouseEvent) => void;
 }
 
 interface PhysicalLayoutPositionLocation {
@@ -73,6 +78,8 @@ function scalePosition(
 export const PhysicalLayout = ({
   positions,
   selectedPosition,
+  draftedPositions,
+  selectedPositions,
   oneU = 48,
   hoverZoom = false,
   zoom,
@@ -190,7 +197,13 @@ export const PhysicalLayout = ({
       <Key
         oneU={oneU}
         selected={idx === selectedPosition}
-        onClick={onPositionClicked ? () => onPositionClicked(idx) : undefined}
+        drafted={draftedPositions?.has(idx)}
+        coSelected={idx !== selectedPosition && selectedPositions?.has(idx)}
+        onClick={
+          onPositionClicked
+            ? (event) => onPositionClicked(idx, event)
+            : undefined
+        }
         {...position}
       >
         {children}

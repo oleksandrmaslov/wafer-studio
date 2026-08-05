@@ -231,24 +231,28 @@
     --key-light-x: calc(var(--light-bx) - var(--kx, 0px));
     --key-light-y: calc(var(--light-by) - var(--ky, 0px));
 
-    background-image:
-      radial-gradient(
-        circle calc(var(--light-spread) / var(--board-scale, 1)) at
-          var(--key-light-x) var(--key-light-y),
-        rgb(var(--light-specular) / calc(0.92 * var(--light-presence))),
-        rgb(var(--light-specular) / calc(0.32 * var(--light-presence))) 16%,
-        rgb(var(--light-specular) / 0) 44%
-      ),
-      conic-gradient(
-        from -55deg at var(--key-light-x) var(--key-light-y),
-        rgb(var(--spectral-cyan)),
-        rgb(var(--spectral-azure)) 16%,
-        rgb(var(--spectral-violet)) 36%,
-        rgb(var(--spectral-magenta)) 52%,
-        rgb(var(--spectral-violet)) 70%,
-        rgb(var(--spectral-azure)) 86%,
-        rgb(var(--spectral-cyan))
-      );
+    /* Custom properties, not a background. `background-image` is not inherited,
+       and `.wafer-key` sets the `background` *shorthand*, which would reset it
+       anyway — so the field is published as two coordinates and each
+       pseudo-element paints its own gradient from them. */
+    --key-light-field: radial-gradient(
+      circle calc(var(--light-spread) / var(--board-scale, 1)) at
+        var(--key-light-x) var(--key-light-y),
+      rgb(var(--light-specular) / calc(0.92 * var(--light-presence))),
+      rgb(var(--light-specular) / calc(0.32 * var(--light-presence))) 16%,
+      rgb(var(--light-specular) / 0) 44%
+    );
+
+    --key-spectrum-field: conic-gradient(
+      from -55deg at var(--key-light-x) var(--key-light-y),
+      rgb(var(--spectral-cyan)),
+      rgb(var(--spectral-azure)) 16%,
+      rgb(var(--spectral-violet)) 36%,
+      rgb(var(--spectral-magenta)) 52%,
+      rgb(var(--spectral-violet)) 70%,
+      rgb(var(--spectral-azure)) 86%,
+      rgb(var(--spectral-cyan))
+    );
   }
 
   /* ---- Substrate ----------------------------------------------------------
