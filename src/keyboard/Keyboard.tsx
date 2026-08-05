@@ -25,7 +25,11 @@ import type {
 
 import { LayerPicker } from "./LayerPicker";
 import { SelectField } from "../design-system/SelectField";
-import { useCommands, type Command } from "../design-system/commandRegistry";
+import {
+  useCommandPalette,
+  useCommands,
+  type Command,
+} from "../design-system/commandRegistry";
 import { PhysicalLayoutPicker } from "./PhysicalLayoutPicker";
 import { Keymap as KeymapComp } from "./Keymap";
 import { useConnectedDeviceData } from "../rpc/useConnectedDeviceData";
@@ -43,12 +47,29 @@ import {
   usageForCode,
 } from "./typeThrough";
 import { mirrorPosition, mirrorUsage } from "./mirror";
+import {
+  ALPHA_LAYOUTS,
+  detectAlphaLayout,
+  letterForUsageId,
+  remapAlphas,
+  usageIdForLetter,
+  type AlphaLayout,
+} from "./alphaLayouts";
 
 import {
   validateBindingParameters,
   validateValue,
 } from "../behaviors/parameters";
-import { describeHidUsage } from "../behaviors/actionCatalog";
+import {
+  describeHidUsage,
+  getHidBaseUsage,
+  getHidImplicitModifierMask,
+  HID_KEYBOARD_USAGE_PAGE,
+} from "../behaviors/actionCatalog";
+import {
+  hid_usage_from_page_and_id,
+  hid_usage_page_and_id_from_usage,
+} from "../hid-usages";
 import { produce } from "immer";
 import { LockStateContext } from "../rpc/LockStateContext";
 import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
@@ -62,6 +83,7 @@ import {
   Maximize2,
   Minus,
   Plus,
+  Search,
   X,
 } from "lucide-react";
 import {
@@ -794,6 +816,8 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
    * Keeping them separate means every existing single-key path keeps working
    * untouched, and multi-select is purely additive.
    */
+  const openCommandPalette = useCommandPalette();
+
   const [selection, setSelection] = useState<ReadonlySet<number>>(new Set());
 
   const selectedPositions = useMemo(() => {
@@ -1286,6 +1310,115 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     [conn, undoRedo],
   );
 
+  /**
+   * The alpha block on this layer, if it currently reads as a layout we know.
+   *
+   * Read rather than guessed. Keys carrying an implicit modifier are skipped —
+   * a Ctrl+C key is not part of the alphabet even though its usage is a letter.
+   */
+  const alphaBlock = useMemo(() => {
+    const bindings = keymap?.layers[selectedLayerIndex]?.bindings;
+    if (!bindings || keyPressBehaviorId === undefined) return undefined;
+
+    const positions: number[] = [];
+    let letters = "";
+
+    for (const position of order) {
+      const binding = bindings[position];
+      if (!binding || binding.behaviorId !== keyPressBehaviorId) continue;
+      if (getHidImplicitModifierMask(binding.param1) !== 0) continue;
+
+      const [page, id] = hid_usage_page_and_id_from_usage(
+        getHidBaseUsage(binding.param1),
+      );
+      if (page !== HID_KEYBOARD_USAGE_PAGE) continue;
+
+      const letter = letterForUsageId(id);
+      if (!letter) continue;
+
+      positions.push(position);
+      letters += letter;
+    }
+
+    const layout = detectAlphaLayout(letters);
+    return layout ? { positions, layout } : undefined;
+  }, [keymap, keyPressBehaviorId, order, selectedLayerIndex]);
+
+  /**
+   * Move the alphas onto another layout, in one undo entry.
+   *
+   * Only the letters move. Punctuation, thumbs, layer keys and anything with a
+   * modifier are left exactly where they are, because those are the parts a
+   * user has actually chosen.
+   */
+  const applyAlphaLayout = useCallback(
+    (target: AlphaLayout) => {
+      if (!alphaBlock || !deviceKeymap || !keymap || isApplyingDraft) return;
+      if (keyPressBehaviorId === undefined) return;
+
+      const layer = keymap.layers[selectedLayerIndex];
+      if (!layer) return;
+
+      const changes = remapAlphas(
+        alphaBlock.positions,
+        alphaBlock.layout,
+        target,
+      );
+      if (changes.size === 0) return;
+
+      const restore = [...changes.keys()].map(
+        (position) => [position, { ...layer.bindings[position] }] as const,
+      );
+      const incoming = [...changes].map(([position, letter]) => {
+        const usageId = usageIdForLetter(letter);
+        return [
+          position,
+          {
+            behaviorId: keyPressBehaviorId,
+            param1:
+              usageId === undefined
+                ? layer.bindings[position].param1
+                : hid_usage_from_page_and_id(
+                    HID_KEYBOARD_USAGE_PAGE,
+                    usageId,
+                  ) >>> 0,
+            param2: 0,
+          },
+        ] as const;
+      });
+
+      const write = (
+        entries: readonly (readonly [number, BehaviorBinding])[],
+      ) =>
+        setDraftBindings((current) =>
+          entries.reduce(
+            (draft, [keyPosition, binding]) =>
+              updateDraftBinding(
+                deviceKeymap,
+                draft,
+                { layerId: layer.id, keyPosition },
+                binding,
+              ),
+            current,
+          ),
+        );
+
+      void undoRedo?.(async () => {
+        write(incoming);
+        return async () => write(restore);
+      });
+    },
+    [
+      alphaBlock,
+      deviceKeymap,
+      isApplyingDraft,
+      keymap,
+      keyPressBehaviorId,
+      selectedLayerIndex,
+      undoRedo,
+    ],
+  );
+
   // Registered where the state is, not handed upward. Everything here is
   // reachable from the rails too — the palette exists so that rare actions do
   // not have to earn a permanent button to stay findable.
@@ -1332,6 +1465,20 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       },
     ];
 
+    for (const layout of ALPHA_LAYOUTS) {
+      if (!alphaBlock || alphaBlock.layout.id === layout.id) continue;
+      list.push({
+        id: `kb.alpha.${layout.id}`,
+        label: `Switch alphas to ${layout.name}`,
+        section: "Keymap",
+        icon: Keyboard2,
+        keywords: `layout alphas ${layout.name} ${alphaBlock.layout.name}`,
+        hint: `from ${alphaBlock.layout.name}`,
+        disabled: isApplyingDraft,
+        run: () => applyAlphaLayout(layout),
+      });
+    }
+
     if (mirrorTarget !== undefined && selectedBinding) {
       list.push({
         id: "kb.mirror",
@@ -1359,6 +1506,8 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     return list;
   }, [
     addLayer,
+    alphaBlock,
+    applyAlphaLayout,
     canTypeThrough,
     copyLayerFrom,
     draftBindings,
@@ -1467,6 +1616,22 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           />
         )}
 
+        {alphaBlock && (
+          <SelectField
+            label="Alphas"
+            placeholder={alphaBlock.layout.name}
+            value={null}
+            isDisabled={isApplyingDraft}
+            options={ALPHA_LAYOUTS.filter(
+              (layout) => layout.id !== alphaBlock.layout.id,
+            ).map((layout) => ({ id: layout.id, label: layout.name }))}
+            onChange={(id) => {
+              const layout = ALPHA_LAYOUTS.find((item) => item.id === id);
+              if (layout) applyAlphaLayout(layout);
+            }}
+          />
+        )}
+
         {canTypeThrough && (
           <button
             type="button"
@@ -1481,6 +1646,18 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
             <span className="min-w-0 truncate">Type through</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="flex min-h-9 items-center gap-2 rounded-control px-1 text-left text-sm text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <Search aria-hidden="true" className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">All commands</span>
+          <kbd className="shrink-0 rounded border border-line-subtle px-1 font-mono text-[0.5625rem] text-tertiary">
+            ⌘K
+          </kbd>
+        </button>
 
         {/* Corner anchor: zoom is pinned to the foot of the rail, not stacked
             under the layers. The two clusters hold opposite corners and the

@@ -187,17 +187,35 @@ export function readingOrder(layout: PhysicalLayout): number[] {
 
   if (keys.length === 0) return [];
 
-  const tolerance =
-    keys.reduce((total, key) => total + key.height, 0) / keys.length / 2;
+  /*
+   * A row is bounded by how far its *own* stagger spreads, not by half a key.
+   *
+   * Columnar boards stagger each column vertically, and aggressively: on the
+   * reference 42-key split the columns sit at y = 0, 35 and 75 within a single
+   * visual row whose neighbour starts at 100. A key at 75 is therefore nearer
+   * to the row below it than to the row it belongs to, so no rule comparing
+   * one key to its neighbour can separate them — the rows genuinely overlap in
+   * y. Bounding the *total spread* of a row does separate them, because stagger
+   * is bounded by construction and row pitch is not.
+   *
+   * 0.8 of a key covers the staggers boards actually use while staying under
+   * the 1.0 pitch between rows. A board staggering more than that would need
+   * per-column row indexing, which in turn breaks row-staggered boards — so
+   * this is the trade, and it is why the value is not simply larger.
+   */
+  const averageHeight =
+    keys.reduce((total, key) => total + key.height, 0) / keys.length;
+  const tolerance = averageHeight * 0.8;
 
   const byY = [...keys].sort((left, right) => left.y - right.y);
   const rows: (typeof byY)[] = [];
 
   for (const key of byY) {
     const row = rows[rows.length - 1];
-    // Compare against the row's first key, not the previous key: comparing
-    // pairwise lets a long column-staggered row drift into the next one.
-    if (row && Math.abs(key.y - row[0].y) <= tolerance) {
+    // Against the row's first key — the smallest y in it, since sorted — so
+    // this caps the row's spread. Comparing pairwise instead would let each
+    // key drag the row's ceiling along and swallow the next row entirely.
+    if (row && key.y - row[0].y <= tolerance) {
       row.push(key);
     } else {
       rows.push([key]);

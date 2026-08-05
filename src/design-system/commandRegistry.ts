@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -39,6 +39,8 @@ export interface Command {
 
 export interface CommandRegistry {
   register: (commands: Command[]) => () => void;
+  /** Open the palette from a button, for anyone who has not met ⌘K. */
+  open: () => void;
 }
 
 export const CommandContext = createContext<CommandRegistry | null>(null);
@@ -50,6 +52,17 @@ export const CommandContext = createContext<CommandRegistry | null>(null);
  * every parent render re-registers. The dependency is the array identity, which
  * makes that requirement visible rather than silent.
  */
+/**
+ * Opens the palette.
+ *
+ * A shortcut nobody has been told about is not a feature, so the rail carries a
+ * visible way in and this is what it calls.
+ */
+export function useCommandPalette(): () => void {
+  const registry = useContext(CommandContext);
+  return useCallback(() => registry?.open(), [registry]);
+}
+
 export function useCommands(commands: Command[]): void {
   const registry = useContext(CommandContext);
 

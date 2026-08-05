@@ -260,9 +260,9 @@ base layer is thirty seconds of typing.
 Any feature that does not attack that number is decoration. Four that do,
 ordered by value per unit of work:
 
-> **Status:** 1, 3 and 4 are built (`src/keyboard/typeThrough.ts`,
-> `src/keyboard/mirror.ts`, and copy-from-layer plus bulk apply in
-> `Keyboard.tsx`). Starter layouts are not.
+> **Status:** all four are built — `typeThrough.ts`, `alphaLayouts.ts`,
+> `mirror.ts`, and copy-from-layer plus bulk apply in `Keyboard.tsx` — along
+> with multi-select and the command palette.
 
 ### 1. Type-through binding — the one that changes the product
 

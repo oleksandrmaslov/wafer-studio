@@ -127,6 +127,22 @@ under `--max-warnings 0`. Put shared helpers in a `.ts` module.
 
 Reversals are recorded with their reasons so nobody re-litigates them.
 
+### Starter layouts detect, they do not guess geometry
+`alphaLayouts.ts`. The current layer is *read*: every key bound to a plain
+letter is collected in reading order, and if that whole sequence matches a known
+layout the mapping is known position by position — no assumption about rows,
+columns or where the block starts. A sequence that matches nothing declines
+rather than scrambling the board, which is what a half-edited layer or an
+unlisted layout gets. Keys carrying an implicit modifier are skipped: a Ctrl+C
+key is not part of the alphabet even though its usage is a letter.
+
+Only five layouts ship (QWERTY, Colemak, Colemak-DH, Dvorak, Workman) because
+those are the grids that could be stated with certainty. **A wrong row silently
+scrambles someone's board**, so adding Graphite/Canary/Gallium is a data-only
+change that must be checked against that layout's own reference rather than
+written from memory. Each table is validated in the probe: 30 cells, 26 unique
+letters.
+
 ### Multi-select is additive, not a rewrite
 `selectedKeyPosition` stays the *primary* — the key the inspector describes and
 the one type-through advances. `selection` is a separate set of who an edit
@@ -294,21 +310,12 @@ split in Node. Do that rather than guessing.
 ## 7. What is next
 
 From `UX.md` §6b and §7, in value order. Type-through, bulk apply, copy-from-layer
-mirror, the command palette and multi-select are built; these are not:
+mirror, the command palette, multi-select and starter layouts are built; these
+are not:
 
-1. **Starter layouts — alpha block only.** See `LAYOUTS.md` §5 before starting.
-   Summary: do *not* ship "apply Miryoku". Miryoku-class layouts are built on
-   home row mods whose feel is decided by `tapping-term-ms`,
-   `require-prior-idle-ms`, `flavor` and positional hold-tap — none of which are
-   in the Studio protocol. Writing 36 mod-taps would hand the user a keyboard
-   that misfires and a fix they cannot reach from here. Swapping the alpha block
-   (Colemak-DH, Graphite, Canary, Gallium, Workman, Dvorak) is plain `&kp` with
-   no timing coupling, and is the safe 80%. Identify the block by *detecting an
-   existing known layout and permuting positionally*, not by guessing geometry —
-   and decline when nothing is recognised.
-2. **Consumer-key prominence** in the picker, and chroma on hover / active
+1. **Consumer-key prominence** in the picker, and chroma on hover / active
    layer.
-3. **Undo toast wired to `restoreLayer`** after a layer delete — the protocol
+2. **Undo toast wired to `restoreLayer`** after a layer delete — the protocol
    supports restoring, but nothing offers it at the moment it is wanted.
 
 Known open questions, none yet answered by observation: whether the key grid

@@ -53,6 +53,10 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         return () =>
           setRegistered((current) => current.filter((c) => c !== commands));
       },
+      open: () => {
+        restoreRef.current = document.activeElement as HTMLElement;
+        setOpen(true);
+      },
     }),
     [],
   );
@@ -66,7 +70,10 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         seen.add(command.id);
         return true;
       })
-      .sort((a, b) => Number(a.destructive ?? false) - Number(b.destructive ?? false));
+      .sort(
+        (a, b) =>
+          Number(a.destructive ?? false) - Number(b.destructive ?? false),
+      );
   }, [registered]);
 
   const results = useMemo(() => {
@@ -94,7 +101,8 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setOpen((current) => {
-          if (!current) restoreRef.current = document.activeElement as HTMLElement;
+          if (!current)
+            restoreRef.current = document.activeElement as HTMLElement;
           return !current;
         });
       }
@@ -163,7 +171,10 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
             className="wafer-float flex max-h-[min(28rem,70vh)] w-[min(34rem,calc(100vw-2rem))] flex-col overflow-hidden"
           >
             <div className="flex items-center gap-2 border-b border-line-subtle px-3">
-              <Search aria-hidden="true" className="size-4 shrink-0 text-tertiary" />
+              <Search
+                aria-hidden="true"
+                className="size-4 shrink-0 text-tertiary"
+              />
               <input
                 ref={inputRef}
                 type="text"
@@ -211,9 +222,13 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
                         command.destructive ? "text-danger" : "text-ink"
                       }`}
                     >
-                      {Icon && <Icon aria-hidden="true" className="size-4 shrink-0" />}
+                      {Icon && (
+                        <Icon aria-hidden="true" className="size-4 shrink-0" />
+                      )}
                       <span className="min-w-0 flex-1 truncate">
-                        {isArmed ? `${command.label} — press again to confirm` : command.label}
+                        {isArmed
+                          ? `${command.label} — press again to confirm`
+                          : command.label}
                       </span>
                       {command.hint && !isArmed && (
                         <span className="shrink-0 font-mono text-[0.625rem] text-tertiary">
