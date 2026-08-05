@@ -82,9 +82,16 @@
     --dispersion-engaged: 0.66; /* focus, open, active */
     --dispersion-committed: 1; /* selected, bound, primary */
 
-    /* Amplitude of the whole system, set by the finish level. */
-    --dispersion-gain: 1;
-    --specular-gain: 1;
+    /* Amplitude of the whole system.
+       There used to be three selectable finishes multiplying these — 0.5/0.4,
+       1/1 and 1.55/1.35 — behind a menu in the header. They were removed rather
+       than retuned: nobody could tell the levels apart in use, which makes a
+       three-way choice a question with no answer, and a design system with a
+       volume knob is really three design systems that have to be checked three
+       times. These are the values the default finish resolved to, so what is on
+       screen is unchanged; this is now the amplitude, not a preset of it. */
+    --dispersion-gain: 0.5;
+    --specular-gain: 0.4;
 
     /* Distance from the light decides brightness. */
     --wafer-light-field: radial-gradient(
@@ -117,25 +124,6 @@
       rgb(var(--light-specular) / calc(0.015 * var(--light-presence))) 30%,
       rgb(var(--light-specular) / 0) 60%
     );
-  }
-
-  /* ---- Finish levels ------------------------------------------------------
-     Not three different systems. One system at three amplitudes. Every level
-     disperses; they differ in how loudly. */
-
-  :root[data-wafer-finish="precision"] {
-    --dispersion-gain: 0.5;
-    --specular-gain: 0.4;
-  }
-
-  :root[data-wafer-finish="alloy"] {
-    --dispersion-gain: 1;
-    --specular-gain: 1;
-  }
-
-  :root[data-wafer-finish="prism"] {
-    --dispersion-gain: 1.55;
-    --specular-gain: 1.35;
   }
 
   /* Movement is the part reduced-motion removes. The identity stays: the light

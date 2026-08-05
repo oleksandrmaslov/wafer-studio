@@ -24,7 +24,14 @@ import {
 } from "lucide-react";
 
 import { BehaviorParametersPicker } from "./BehaviorParametersPicker";
-import { filterHidActionCatalogForUsagePages } from "./actionCatalog";
+import {
+  filterHidActionCatalogForUsagePages,
+  searchHidActionCatalog,
+  HID_CONSUMER_ACTION_CATEGORY_IDS,
+  HID_CONSUMER_USAGE_PAGE,
+  HID_KEYBOARD_ACTION_CATEGORY_IDS,
+  HID_KEYBOARD_USAGE_PAGE,
+} from "./actionCatalog";
 import { HidUsageGrid } from "./HidUsageGrid";
 import { HidUsagePicker, type HidUsagePage } from "./HidUsagePicker";
 import { validateBindingParameters, validateValue } from "./parameters";
@@ -451,6 +458,46 @@ export const BehaviorBindingPicker = ({
     [usagePages],
   );
 
+  /*
+   * The catalogue is split by HID page so the consumer usages get a heading of
+   * their own instead of trailing the alphabet.
+   *
+   * They were the last sections of a single grid, which meant volume, playback,
+   * brightness and the browser keys sat below a hundred-odd letters, digits and
+   * symbols — present in the product, invisible in it. A second group puts the
+   * whole class one click from the top of the panel, and its count advertises
+   * that there is something there worth opening.
+   *
+   * Both halves are still whatever the firmware said it accepts: a board that
+   * reports no consumer range gets no consumer group at all, rather than a
+   * heading over an empty grid.
+   */
+  const keyboardCatalog = useMemo(
+    () =>
+      keyCatalog.filter(
+        ({ usagePage }) => usagePage === HID_KEYBOARD_USAGE_PAGE,
+      ),
+    [keyCatalog],
+  );
+  const consumerCatalog = useMemo(
+    () =>
+      keyCatalog.filter(
+        ({ usagePage }) => usagePage === HID_CONSUMER_USAGE_PAGE,
+      ),
+    [keyCatalog],
+  );
+
+  // Counts drive both the badge and whether a group is worth drawing while a
+  // search is running, so they are the searched counts rather than the totals.
+  const matchingKeyboardCount = useMemo(
+    () => searchHidActionCatalog(search, keyboardCatalog).length,
+    [keyboardCatalog, search],
+  );
+  const matchingConsumerCount = useMemo(
+    () => searchHidActionCatalog(search, consumerCatalog).length,
+    [consumerCatalog, search],
+  );
+
   const editorBehavior = useMemo(
     () =>
       editor
@@ -546,6 +593,13 @@ export const BehaviorBindingPicker = ({
     setEditor(next);
     publish(next, editorBehavior);
   };
+
+  // Undefined unless the key is currently bound to the plain key press, so a
+  // key holding a hold-tap does not light a usage up as if it were selected.
+  const selectedKeyUsage =
+    keyPressBehavior && binding.behaviorId === keyPressBehavior.id
+      ? binding.param1
+      : undefined;
 
   const filteredActions = actionBehaviors.filter((behavior) =>
     behaviorMatchesQuery(behavior, search),
@@ -650,50 +704,79 @@ export const BehaviorBindingPicker = ({
               panel's search instead — one field filters keys and actions
               together, which is what a single box in a single list implies. */}
           {keyPressBehavior ? (
-            <PickerGroup
-              label="Keys"
-              count={keyCatalog.length}
-              defaultOpen
-              forceOpen={Boolean(search)}
-            >
-              <HidUsageGrid
-                value={
-                  binding.behaviorId === keyPressBehavior.id
-                    ? binding.param1
-                    : undefined
-                }
-                items={keyCatalog}
-                disabled={isDisabled}
-                onValueChange={chooseKeyUsage}
-                ariaLabel="Choose a key or shortcut"
-                showSearch={false}
-                searchValue={search}
-              />
-              {!search && (
-                <details className="mt-2 rounded-xl border border-line bg-base-100">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center px-3 text-xs font-semibold text-base-content/55 [&::-webkit-details-marker]:hidden">
-                    More firmware-supported usages
-                  </summary>
-                  <fieldset
-                    disabled={isDisabled}
-                    className="border-t border-line p-3 disabled:opacity-45"
+            <>
+              {/* Above the keys grid, not below it. The grid is open by
+                  default and a hundred buttons tall, so a heading placed after
+                  it is only nominally on the page — you have to scroll the
+                  whole alphabet to learn the group exists. One collapsed row
+                  costs the primary path nothing and puts volume, brightness
+                  and the browser keys a single click from the top. */}
+              {consumerCatalog.length > 0 &&
+                (!search || matchingConsumerCount > 0) && (
+                  <PickerGroup
+                    label="Media & system"
+                    count={matchingConsumerCount}
+                    forceOpen={Boolean(search)}
                   >
-                    <HidUsagePicker
-                      label="Key or consumer usage"
-                      value={
-                        binding.behaviorId === keyPressBehavior.id
-                          ? binding.param1
-                          : undefined
-                      }
-                      usagePages={usagePages}
-                      onValueChanged={(value) => {
-                        if (value !== undefined) chooseKeyUsage(value);
-                      }}
+                    <HidUsageGrid
+                      value={selectedKeyUsage}
+                      items={consumerCatalog}
+                      categoryIds={HID_CONSUMER_ACTION_CATEGORY_IDS}
+                      disabled={isDisabled}
+                      onValueChange={chooseKeyUsage}
+                      ariaLabel="Choose a media, system, or browser control"
+                      emptyMessage="No matching media or system controls."
+                      showSearch={false}
+                      /* A consumer usage carries no implicit modifier — Ctrl +
+                         Volume Up is not a thing the report can express — and
+                         the keys grid below already owns the one chord panel
+                         this rail should have. */
+                      showModifiers={false}
+                      searchValue={search}
                     />
-                  </fieldset>
-                </details>
+                  </PickerGroup>
+                )}
+
+              {(!search || matchingKeyboardCount > 0) && (
+                <PickerGroup
+                  label="Keys"
+                  count={matchingKeyboardCount}
+                  defaultOpen
+                  forceOpen={Boolean(search)}
+                >
+                  <HidUsageGrid
+                    value={selectedKeyUsage}
+                    items={keyboardCatalog}
+                    categoryIds={HID_KEYBOARD_ACTION_CATEGORY_IDS}
+                    disabled={isDisabled}
+                    onValueChange={chooseKeyUsage}
+                    ariaLabel="Choose a key or shortcut"
+                    showSearch={false}
+                    searchValue={search}
+                  />
+                  {!search && (
+                    <details className="mt-2 rounded-xl border border-line bg-base-100">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center px-3 text-xs font-semibold text-base-content/55 [&::-webkit-details-marker]:hidden">
+                        More firmware-supported usages
+                      </summary>
+                      <fieldset
+                        disabled={isDisabled}
+                        className="border-t border-line p-3 disabled:opacity-45"
+                      >
+                        <HidUsagePicker
+                          label="Key or consumer usage"
+                          value={selectedKeyUsage}
+                          usagePages={usagePages}
+                          onValueChanged={(value) => {
+                            if (value !== undefined) chooseKeyUsage(value);
+                          }}
+                        />
+                      </fieldset>
+                    </details>
+                  )}
+                </PickerGroup>
               )}
-            </PickerGroup>
+            </>
           ) : (
             <p className="rounded-xl border border-line bg-base-100 p-4 text-sm text-base-content/60">
               This keyboard did not report a standard key-press action.

@@ -1,11 +1,15 @@
 import { useState, type CSSProperties } from "react";
-import { Bluetooth, Layers, Search as SearchIcon, Sparkles } from "lucide-react";
+import {
+  Bluetooth,
+  Layers,
+  Search as SearchIcon,
+  Sparkles,
+} from "lucide-react";
 import { DispersionField } from "./DispersionField.tsx";
 import { useDispersionPulse } from "./dispersionContext.ts";
 import { ActionRow } from "./ActionRow.tsx";
 import { SearchField } from "./SearchField.tsx";
 import { SegmentedControl } from "./SegmentedControl.tsx";
-import { WAFER_FINISHES, useWaferFinish } from "../appearance.ts";
 
 /**
  * The design system reference.
@@ -39,7 +43,11 @@ const DISPERSION_STEPS = [
   { token: "--dispersion-inert", label: "Inert", use: "At rest" },
   { token: "--dispersion-latent", label: "Latent", use: "Hover" },
   { token: "--dispersion-engaged", label: "Engaged", use: "Focus, open" },
-  { token: "--dispersion-committed", label: "Committed", use: "Selected, bound" },
+  {
+    token: "--dispersion-committed",
+    label: "Committed",
+    use: "Selected, bound",
+  },
 ];
 
 function Section({
@@ -248,8 +256,6 @@ function Specimens() {
 }
 
 export function DesignSystemPage() {
-  const [finish, setFinish] = useWaferFinish();
-
   return (
     <DispersionField>
       <div className="wafer-substrate grid h-full grid-rows-[auto_minmax(0,1fr)] bg-canvas">
@@ -274,17 +280,6 @@ export function DesignSystemPage() {
                 Design system
               </span>
             </span>
-          </div>
-          <div className="w-64">
-            <SegmentedControl
-              ariaLabel="Finish amplitude"
-              value={finish}
-              options={WAFER_FINISHES.map((entry) => ({
-                id: entry.id,
-                label: entry.label,
-              }))}
-              onChange={setFinish}
-            />
           </div>
         </header>
 

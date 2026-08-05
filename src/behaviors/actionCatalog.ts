@@ -9,13 +9,26 @@ export const HID_CONSUMER_USAGE_PAGE = 0x0c;
 
 export const HID_BASE_USAGE_MASK = 0x00ffffff;
 
+/**
+ * Category order is render order — the grid draws its sections in this
+ * sequence — so this array is the one place that decides how far someone has
+ * to scroll to reach a class of key.
+ *
+ * The consumer page sits in the middle rather than at the end. It used to be
+ * one "Media" bucket sixth of seven, which put volume and playback below the
+ * twenty-four function keys and made everything else on the page — brightness,
+ * browser navigation, launchers — effectively unreachable. Those are outer-layer
+ * keys: exactly what people build a layer *for*. Function keys past F12 are not.
+ */
 export const HID_ACTION_CATEGORY_IDS = [
   "letters",
   "numbers",
   "symbols",
   "navigation-editing",
-  "function",
   "media",
+  "system",
+  "browser-apps",
+  "function",
   "modifiers",
 ] as const;
 
@@ -25,43 +38,75 @@ export interface HidActionCategory {
   id: HidActionCategoryId;
   label: string;
   description: string;
+  /**
+   * The HID page every action in this category belongs to. Declared here so
+   * callers that need to split the catalogue by page — the picker gives the
+   * consumer categories a heading of their own — can derive the split instead
+   * of keeping a second hand-maintained list in agreement with this one.
+   */
+  usagePage: number;
 }
 
+/**
+ * Descriptions are user-facing *and* searchable: `matchesHidActionQuery` folds
+ * a category's description into every one of its actions, so the words chosen
+ * here are the words that find the whole group. "brightness", "launchers" and
+ * "volume" each earn their place below for that reason.
+ */
 export const HID_ACTION_CATEGORIES: readonly HidActionCategory[] = [
   {
     id: "letters",
     label: "Letters",
     description: "Alphabet keys A through Z.",
+    usagePage: HID_KEYBOARD_USAGE_PAGE,
   },
   {
     id: "numbers",
     label: "Numbers",
     description: "Number-row keys 0 through 9.",
+    usagePage: HID_KEYBOARD_USAGE_PAGE,
   },
   {
     id: "symbols",
     label: "Symbols",
     description: "Punctuation and shifted symbol shortcuts.",
+    usagePage: HID_KEYBOARD_USAGE_PAGE,
   },
   {
     id: "navigation-editing",
     label: "Navigation & editing",
     description: "Movement, editing, and common keyboard controls.",
+    usagePage: HID_KEYBOARD_USAGE_PAGE,
+  },
+  {
+    id: "media",
+    label: "Media",
+    description: "Playback transport, track skipping, and volume.",
+    usagePage: HID_CONSUMER_USAGE_PAGE,
+  },
+  {
+    id: "system",
+    label: "System",
+    description: "Display brightness, sleep, power, and screen lock.",
+    usagePage: HID_CONSUMER_USAGE_PAGE,
+  },
+  {
+    id: "browser-apps",
+    label: "Browser & apps",
+    description: "Browser navigation and application launchers.",
+    usagePage: HID_CONSUMER_USAGE_PAGE,
   },
   {
     id: "function",
     label: "Function",
     description: "Function keys F1 through F24.",
-  },
-  {
-    id: "media",
-    label: "Media",
-    description: "Playback and system volume controls.",
+    usagePage: HID_KEYBOARD_USAGE_PAGE,
   },
   {
     id: "modifiers",
     label: "Modifier keys",
     description: "Left and right Control, Shift, Alt, and GUI keys.",
+    usagePage: HID_KEYBOARD_USAGE_PAGE,
   },
 ];
 
@@ -70,6 +115,27 @@ export const HID_ACTION_CATEGORY_BY_ID: Readonly<
 > = Object.fromEntries(
   HID_ACTION_CATEGORIES.map((category) => [category.id, category]),
 ) as Record<HidActionCategoryId, HidActionCategory>;
+
+function categoryIdsForUsagePage(
+  usagePage: number,
+): readonly HidActionCategoryId[] {
+  return HID_ACTION_CATEGORIES.filter(
+    (category) => category.usagePage === usagePage,
+  ).map(({ id }) => id);
+}
+
+/**
+ * The two halves of the catalogue, in render order. Module constants rather
+ * than inline literals because the grid memoises on the identity of the array
+ * it is handed; a fresh literal per render would rebuild every section.
+ */
+export const HID_KEYBOARD_ACTION_CATEGORY_IDS = categoryIdsForUsagePage(
+  HID_KEYBOARD_USAGE_PAGE,
+);
+
+export const HID_CONSUMER_ACTION_CATEGORY_IDS = categoryIdsForUsagePage(
+  HID_CONSUMER_USAGE_PAGE,
+);
 
 export const HID_IMPLICIT_MODIFIER_MASKS = {
   leftControl: 0x01,
@@ -420,6 +486,23 @@ const functionActions: HidActionCatalogItem[] = Array.from(
   },
 );
 
+/*
+ * Consumer page (0x0C), split three ways.
+ *
+ * `&kp` takes a consumer usage as happily as a keyboard one, and these are the
+ * keys an outer layer is usually built to hold. Every usage ID below was read
+ * out of `src/keyboard-and-consumer-usage-tables.json` — the same table the app
+ * resolves labels from — rather than written from memory, because a wrong ID
+ * here is silent: the binding applies, the firmware accepts it, and the owner
+ * finds out only when the key does the wrong thing. ZMK's `keys.h` decided
+ * *which* of the 450 consumer usages are worth shipping; the table decided what
+ * number each one is.
+ *
+ * The split is by what someone is reaching for, not by where the numbers fall:
+ * transport and volume, host state, then the browser and launcher keys. One
+ * bucket of thirty-four would have been a longer list, not a more findable one.
+ */
+
 const mediaActions: HidActionCatalogItem[] = [
   ["play-pause", "Play/Pause", "Play or pause", 0xcd, ["media toggle"]],
   ["play", "Play", "Play", 0xb0, []],
@@ -430,6 +513,7 @@ const mediaActions: HidActionCatalogItem[] = [
   ["rewind", "Rewind", "Rewind", 0xb4, []],
   ["fast-forward", "Forward", "Fast forward", 0xb3, []],
   ["record", "Record", "Record", 0xb2, []],
+  ["shuffle", "Shuffle", "Random play", 0xb9, ["random"]],
   ["eject", "Eject", "Eject", 0xb8, []],
   ["mute", "Mute", "Mute volume", 0xe2, ["sound off"]],
   ["volume-up", "Vol +", "Volume up", 0xe9, ["louder"]],
@@ -438,6 +522,124 @@ const mediaActions: HidActionCatalogItem[] = [
   createHidAction({
     id: `consumer.media.${id as string}`,
     category: "media",
+    label: label as string,
+    name: name as string,
+    usagePage: HID_CONSUMER_USAGE_PAGE,
+    usageId: usageId as number,
+    aliases: aliases as string[],
+  }),
+);
+
+/*
+ * Host state. Brightness is the reason this category exists — it is the one
+ * laptop key a custom board cannot otherwise reproduce — and lock, sleep and
+ * power sit with it because they are all "do something to the machine" rather
+ * than "type something into it".
+ *
+ * Deliberately absent: keyboard-backlight brightness (0x79/0x7A). Those control
+ * the *host's* keyboard illumination, which in a keyboard configurator sitting
+ * next to ZMK's own backlight behaviour would read as the same thing and is not.
+ */
+const systemActions: HidActionCatalogItem[] = [
+  ["brightness-up", "Bri +", "Display brightness up", 0x6f, ["brighter"]],
+  ["brightness-down", "Bri −", "Display brightness down", 0x70, ["dimmer"]],
+  ["brightness-max", "Bri max", "Display brightness maximum", 0x74, []],
+  ["brightness-min", "Bri min", "Display brightness minimum", 0x73, []],
+  [
+    "brightness-auto",
+    "Bri auto",
+    "Automatic display brightness",
+    0x75,
+    ["adaptive brightness"],
+  ],
+  [
+    "lock",
+    "Lock",
+    "Lock screen",
+    0x19e,
+    ["screensaver", "terminal lock", "lock workstation"],
+  ],
+  ["sleep", "Sleep", "Sleep", 0x32, ["suspend", "standby"]],
+  ["power", "Power", "Power", 0x30, ["shut down", "power off"]],
+].map(([id, label, name, usageId, aliases]) =>
+  createHidAction({
+    id: `consumer.system.${id as string}`,
+    category: "system",
+    label: label as string,
+    name: name as string,
+    usagePage: HID_CONSUMER_USAGE_PAGE,
+    usageId: usageId as number,
+    aliases: aliases as string[],
+  }),
+);
+
+/*
+ * Application Control (AC) — what the focused application should do. Every name
+ * carries "Browser" because the labels alone collide with keys that already
+ * exist elsewhere in the grid: Backspace is labelled "Back", Navigation has its
+ * own Home and Search. The tooltip and the canvas both read the name.
+ */
+const browserActions: HidActionCatalogItem[] = [
+  ["back", "Back", "Browser back", 0x224, ["previous page", "go back"]],
+  ["forward", "Fwd", "Browser forward", 0x225, ["next page", "go forward"]],
+  ["refresh", "Reload", "Browser refresh", 0x227, ["reload page"]],
+  ["home", "Homepage", "Browser home", 0x223, ["start page"]],
+  ["search", "Search", "Browser search", 0x221, ["find on page"]],
+  [
+    "bookmarks",
+    "Bookmarks",
+    "Browser bookmarks",
+    0x22a,
+    ["favorites", "favourites"],
+  ],
+].map(([id, label, name, usageId, aliases]) =>
+  createHidAction({
+    id: `consumer.browser.${id as string}`,
+    category: "browser-apps",
+    label: label as string,
+    name: name as string,
+    usagePage: HID_CONSUMER_USAGE_PAGE,
+    usageId: usageId as number,
+    aliases: aliases as string[],
+  }),
+);
+
+/*
+ * Application Launch (AL) — open a program. The two file usages are both
+ * shipped, and named apart, because the page genuinely has two: 0x194 is the
+ * "My Computer" key found on media keyboards, 0x1B4 is the file browser proper.
+ * Hosts do not agree on which they honour, so guessing one and hiding the other
+ * would leave whoever needed the other with nothing.
+ */
+const launcherActions: HidActionCatalogItem[] = [
+  ["browser", "Web", "Web browser", 0x196, ["internet browser", "launch web"]],
+  ["mail", "Mail", "Email client", 0x18a, ["email reader", "inbox"]],
+  ["calculator", "Calc", "Calculator", 0x192, ["calc"]],
+  [
+    "files",
+    "Files",
+    "File browser",
+    0x1b4,
+    ["explorer", "finder", "file manager"],
+  ],
+  [
+    "computer",
+    "Computer",
+    "My computer",
+    0x194,
+    ["local machine browser", "this pc"],
+  ],
+  [
+    "control-panel",
+    "Settings",
+    "Control panel",
+    0x19f,
+    ["system settings", "preferences"],
+  ],
+].map(([id, label, name, usageId, aliases]) =>
+  createHidAction({
+    id: `consumer.launcher.${id as string}`,
+    category: "browser-apps",
     label: label as string,
     name: name as string,
     usagePage: HID_CONSUMER_USAGE_PAGE,
@@ -471,8 +673,11 @@ export const HID_ACTION_CATALOG: readonly HidActionCatalogItem[] = [
   ...numberActions,
   ...symbolActions,
   ...navigationAndEditingActions,
-  ...functionActions,
   ...mediaActions,
+  ...systemActions,
+  ...browserActions,
+  ...launcherActions,
+  ...functionActions,
   ...modifierActions,
 ];
 
@@ -497,8 +702,19 @@ export function matchesHidActionQuery(
     action.label,
     action.name,
     category.label,
+    /*
+     * The category description is searched too, so a word that describes a
+     * whole class finds the whole class without every member repeating it in
+     * its own aliases. "brightness" reaches all five brightness usages,
+     * "launcher" reaches all six launchers, "volume" reaches the media group.
+     * Aliases stay for the per-action synonyms a description cannot carry —
+     * "finder", "favourites", "this pc".
+     */
+    category.description,
     ...action.aliases,
-    action.usagePage === HID_KEYBOARD_USAGE_PAGE ? "keyboard key" : "consumer",
+    action.usagePage === HID_KEYBOARD_USAGE_PAGE
+      ? "keyboard key"
+      : "consumer control",
     `0x${action.usagePage.toString(16)} 0x${action.usageId.toString(16)}`,
   ];
 

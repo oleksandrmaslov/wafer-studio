@@ -18,8 +18,10 @@ import {
   Redo2,
   RotateCcw,
   Save,
+  Search,
   Undo2,
 } from "lucide-react";
+import { useCommandPalette } from "./design-system/commandRegistry";
 import { Tooltip } from "./misc/Tooltip";
 import { GenericModal } from "./GenericModal";
 import type {
@@ -27,7 +29,6 @@ import type {
   DraftChangeSummary,
 } from "./keyboard/keymapDraft";
 import { WaferMark } from "./WaferMark";
-import { WAFER_FINISHES, type WaferFinish } from "./appearance";
 
 export interface AppHeaderProps {
   connectedDeviceLabel?: string;
@@ -39,8 +40,6 @@ export interface AppHeaderProps {
   onDisconnect?: () => void | Promise<void>;
   onShowAbout?: () => void;
   onShowLicenseNotice?: () => void;
-  waferFinish?: WaferFinish;
-  onWaferFinishChange?: (finish: WaferFinish) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   draftCount?: number;
@@ -63,8 +62,6 @@ export const AppHeader = ({
   onResetSettings,
   onShowAbout,
   onShowLicenseNotice,
-  waferFinish = "precision",
-  onWaferFinishChange,
   draftCount = 0,
   draftChanges = [],
   draftErrors = [],
@@ -77,6 +74,7 @@ export const AppHeader = ({
   const [applyResult, setApplyResult] = useState<DraftApplyResult>();
   const [isApplying, setIsApplying] = useState(false);
 
+  const openCommandPalette = useCommandPalette();
   const lockState = useContext(LockStateContext);
   const connectionState = useContext(ConnectionContext);
 
@@ -284,6 +282,19 @@ export const AppHeader = ({
           </div>
         )}
       </GenericModal>
+      {/* Identity, not a menu.
+          What hung off this used to be Disconnect, Restore Stock Settings,
+          three visual finishes, About and the notices — a convenience drawer
+          holding one irreversible action two rows from "About". Every entry in
+          it is now a registered command, so the palette is the single way to
+          reach the rare things and this is left saying only what it is good at
+          saying: which keyboard this is, and that it is still there. */}
+      {/* The device menu.
+          Everything in it is a registered command too, so ⌘K reaches all of it
+          — but a menu hanging off the thing it acts on is the obvious way in,
+          and the palette is only obvious once you know it exists. The visual
+          finishes that used to sit in the middle of this list are gone for
+          good; what is left is four actions about this keyboard and this app. */}
       <MenuTrigger>
         <Button
           className="ml-1 flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-line bg-raised px-2.5 text-left outline-none transition hover:border-base-content/25 hover:bg-base-100 rac-disabled:opacity-0 rac-focus-visible:ring-2 rac-focus-visible:ring-focus sm:px-3"
@@ -322,29 +333,6 @@ export const AppHeader = ({
             >
               Restore Stock Settings
             </MenuItem>
-            {WAFER_FINISHES.map((finish, index) => (
-              <MenuItem
-                key={finish.id}
-                className={`flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300 ${
-                  index === 0 ? "mt-1 border-t border-line-subtle pt-2" : ""
-                }`}
-                aria-label={`${finish.label}. ${finish.description}${waferFinish === finish.id ? " Selected." : ""}`}
-                onAction={() => onWaferFinishChange?.(finish.id)}
-              >
-                <span className="min-w-0">
-                  <span className="block font-medium">{finish.label}</span>
-                  <span className="block truncate text-[0.625rem] text-muted">
-                    {finish.description}
-                  </span>
-                </span>
-                {waferFinish === finish.id && (
-                  <Check
-                    aria-label="Selected visual finish"
-                    className="size-4 shrink-0 text-accent-foreground"
-                  />
-                )}
-              </MenuItem>
-            ))}
             <MenuItem
               className="mt-1 flex min-h-10 items-center rounded-lg border-t border-line-subtle px-3 pt-1 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300"
               onAction={onShowAbout}
@@ -383,6 +371,23 @@ export const AppHeader = ({
       </div>
 
       <div className="ml-auto flex justify-end gap-1 lg:ml-0">
+        {/* The palette's visible way in.
+            It used to be a row in the left rail, which put a global escape
+            hatch inside the pane about layers. A shortcut nobody has been told
+            about is not a feature, so it keeps a permanent affordance — but in
+            the chrome that owns the whole application, not in one pane of it. */}
+        <Tooltip label="Search commands">
+          <Button
+            className="flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-base-content/65 outline-none hover:bg-base-300 rac-focus-visible:ring-2 rac-focus-visible:ring-focus sm:px-3"
+            onPress={openCommandPalette}
+          >
+            <Search aria-label="Search commands" className="size-4" />
+            <kbd className="hidden rounded border border-line-subtle px-1 font-mono text-[0.625rem] text-base-content/50 lg:block">
+              ⌘K
+            </kbd>
+          </Button>
+        </Tooltip>
+
         {onUndo && (
           <Tooltip label="Undo">
             <Button

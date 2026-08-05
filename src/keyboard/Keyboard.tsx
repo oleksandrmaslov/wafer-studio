@@ -25,11 +25,7 @@ import type {
 
 import { LayerPicker } from "./LayerPicker";
 import { SelectField } from "../design-system/SelectField";
-import {
-  useCommandPalette,
-  useCommands,
-  type Command,
-} from "../design-system/commandRegistry";
+import { useCommands, type Command } from "../design-system/commandRegistry";
 import { PhysicalLayoutPicker } from "./PhysicalLayoutPicker";
 import { Keymap as KeymapComp } from "./Keymap";
 import { useConnectedDeviceData } from "../rpc/useConnectedDeviceData";
@@ -76,14 +72,22 @@ import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { deserializeLayoutZoom, LayoutZoom } from "./layoutZoom";
 import { useLocalStorageState } from "../misc/useLocalStorageState";
 import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
+} from "react-aria-components";
+import {
   Cable,
+  ChevronDown,
   Copy,
   FlipHorizontal,
   Keyboard as Keyboard2,
   Maximize2,
   Minus,
   Plus,
-  Search,
+  Undo2,
   X,
 } from "lucide-react";
 import {
@@ -112,6 +116,81 @@ const ZOOM_OPTIONS = [
 ];
 
 type BehaviorMap = Record<number, GetBehaviorDetailsResponse>;
+
+/**
+ * A labelled button on the canvas that opens a short list of choices.
+ *
+ * The two things this renders — copy another layer's bindings onto this one,
+ * and move the alpha block to another layout — are the two features that turn a
+ * two-hour keyboard setup into a ten-minute one. They spent a while as standing
+ * select fields in the left rail, which is what a *setting* looks like and
+ * neither of them is one; both are single edits to the current layer. Folding
+ * them into an overflow menu fixed the rail's height and cost more than it
+ * saved: the highest-value things in the application became the two nobody
+ * could see. So they are plain buttons, on the board they rewrite.
+ *
+ * Module scope rather than a closure inside `Keyboard`, or every keystroke
+ * anywhere in that component would remount the popover.
+ */
+function CanvasMenuButton({
+  label,
+  value,
+  title,
+  isDisabled,
+  items,
+  onAction,
+}: {
+  label: string;
+  /** Shown after the label when the control has a current state worth naming. */
+  value?: string;
+  title?: string;
+  isDisabled?: boolean;
+  items: readonly { id: string; label: string }[];
+  onAction: (id: string) => void;
+}) {
+  return (
+    // The tooltip hangs on a wrapper because `Button` filters DOM props and
+    // drops `title`; the trigger itself has to stay `MenuTrigger`'s direct
+    // child for the press and `aria-expanded` wiring to happen at all.
+    <span title={title} className="flex min-w-0">
+      <MenuTrigger>
+        <Button
+          isDisabled={isDisabled}
+          className="wafer-dispersive flex min-h-10 min-w-0 items-center gap-1.5 rounded-control px-2 text-left text-sm outline-none transition-colors hover:bg-hover rac-disabled:cursor-not-allowed rac-disabled:opacity-45 rac-focus-visible:ring-2 rac-focus-visible:ring-focus"
+        >
+          <span className="shrink-0 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
+            {label}
+          </span>
+          {value && (
+            <span className="min-w-0 truncate font-medium">{value}</span>
+          )}
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 shrink-0 text-base-content/45"
+          />
+        </Button>
+        <Popover className="w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-line bg-raised p-1 text-base-content shadow-xl outline-none">
+          <Menu
+            aria-label={label}
+            className="max-h-[min(20rem,var(--available-height))] overflow-auto outline-none"
+            onAction={(key) => onAction(String(key))}
+          >
+            {items.map((item) => (
+              <MenuItem
+                key={item.id}
+                id={item.id}
+                textValue={item.label}
+                className="flex min-h-10 cursor-pointer items-center rounded-lg px-3 text-sm outline-none hover:bg-base-300 rac-focus:bg-base-300"
+              >
+                <span className="min-w-0 truncate">{item.label}</span>
+              </MenuItem>
+            ))}
+          </Menu>
+        </Popover>
+      </MenuTrigger>
+    </span>
+  );
+}
 
 export interface KeyboardProps {
   onDraftStateChange?: (controller: KeymapDraftController) => void;
@@ -816,8 +895,6 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
    * Keeping them separate means every existing single-key path keeps working
    * untouched, and multi-select is purely additive.
    */
-  const openCommandPalette = useCommandPalette();
-
   const [selection, setSelection] = useState<ReadonlySet<number>>(new Set());
 
   const selectedPositions = useMemo(() => {
@@ -1105,6 +1182,13 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       ? "xl:grid-cols-[13rem_minmax(0,1fr)_21rem]"
       : "xl:grid-cols-[13rem_minmax(0,1fr)]";
 
+  // The other half of the same rule. Dropping to one column while the canvas
+  // still asked for column 2 put it in an *implicit* track: the explicit `1fr`
+  // took the free space and the board was squeezed into whatever was left at
+  // the right. Template and placement have to move together, so the placement
+  // is a sibling of the template above rather than a constant in the markup.
+  const canvasPlacement = isTyping ? "" : "xl:col-start-2 xl:row-start-1";
+
   const moveLayer = useCallback(
     (start: number, end: number) => {
       const doMove = async (startIndex: number, destIndex: number) => {
@@ -1130,6 +1214,76 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       });
     },
     [conn.conn, undoRedo],
+  );
+
+  /**
+   * Remove a layer on the keyboard and drop it from local state.
+   *
+   * Hoisted because three call sites need it — the remove action, the undo of
+   * "add layer", and the undo of a restore — and they were three copies of the
+   * same request. Where the selection lands afterwards is deliberately left to
+   * the clamp effect at the foot of this component, so there is one rule for it
+   * rather than two that can disagree.
+   */
+  const removeLayerAt = useCallback(
+    async (layerIndex: number) => {
+      if (!conn.conn) {
+        throw new Error("Not connected");
+      }
+
+      const resp = await call_rpc(conn.conn, {
+        keymap: { removeLayer: { layerIndex } },
+      });
+
+      if (!resp.keymap?.removeLayer?.ok) {
+        console.error("Remove error", resp.keymap?.removeLayer?.err);
+        throw new Error(
+          "Failed to remove layer:" + resp.keymap?.removeLayer?.err,
+        );
+      }
+
+      setDeviceKeymap((current) =>
+        current == null
+          ? current
+          : produce(current, (draft) => {
+              draft.layers.splice(layerIndex, 1);
+              draft.availableLayers++;
+            }),
+      );
+    },
+    [conn.conn, setDeviceKeymap],
+  );
+
+  /** Put a removed layer back, with its bindings, where it used to be. */
+  const restoreLayerAt = useCallback(
+    async (layerId: number, atIndex: number) => {
+      if (!conn.conn) {
+        throw new Error("Not connected");
+      }
+
+      const resp = await call_rpc(conn.conn, {
+        keymap: { restoreLayer: { layerId, atIndex } },
+      });
+
+      const restored = resp.keymap?.restoreLayer?.ok;
+      if (!restored) {
+        console.error("Restore error", resp.keymap?.restoreLayer?.err);
+        throw new Error(
+          "Failed to restore layer:" + resp.keymap?.restoreLayer?.err,
+        );
+      }
+
+      setDeviceKeymap((current) =>
+        current == null
+          ? current
+          : produce(current, (draft) => {
+              draft.layers.splice(atIndex, 0, restored);
+              draft.availableLayers--;
+            }),
+      );
+      setSelectedLayerIndex(atIndex);
+    },
+    [conn.conn, setDeviceKeymap],
   );
 
   const addLayer = useCallback(() => {
@@ -1164,109 +1318,76 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
       }
     }
 
-    async function doRemove(layerIndex: number) {
-      if (!conn.conn) {
-        throw new Error("Not connected");
-      }
-
-      const resp = await call_rpc(conn.conn, {
-        keymap: { removeLayer: { layerIndex } },
-      });
-
-      console.log(resp);
-      if (resp.keymap?.removeLayer?.ok) {
-        setDeviceKeymap((current) =>
-          current == null
-            ? current
-            : produce(current, (draft) => {
-                draft.layers.splice(layerIndex, 1);
-                draft.availableLayers++;
-              }),
-        );
-      } else {
-        console.error("Remove error", resp.keymap?.removeLayer?.err);
-        throw new Error(
-          "Failed to remove layer:" + resp.keymap?.removeLayer?.err,
-        );
-      }
-    }
-
-    undoRedo?.(async () => {
+    void undoRedo?.(async () => {
       const index = await doAdd();
-      return () => doRemove(index);
+      return () => removeLayerAt(index);
     });
-  }, [conn, keymap, undoRedo]);
+  }, [conn, keymap, removeLayerAt, undoRedo]);
+
+  /**
+   * The layer just removed, so it can be put back at the moment it is wanted.
+   *
+   * `restoreLayer` has been in the protocol from the start and has never had an
+   * entry point. ⌘Z reaches it, but only if you know the delete is sitting on
+   * the undo stack and that nothing has happened since — which is exactly the
+   * knowledge someone who just deleted the wrong layer does not have.
+   */
+  const [removedLayer, setRemovedLayer] = useState<{
+    id: number;
+    index: number;
+    name: string;
+  } | null>(null);
 
   const removeLayer = useCallback(() => {
-    async function doRemove(layerIndex: number): Promise<void> {
-      if (!conn.conn || !keymap) {
-        throw new Error("Not connected");
-      }
-
-      const resp = await call_rpc(conn.conn, {
-        keymap: { removeLayer: { layerIndex } },
-      });
-
-      if (resp.keymap?.removeLayer?.ok) {
-        if (layerIndex == keymap.layers.length - 1) {
-          setSelectedLayerIndex(layerIndex - 1);
-        }
-        setDeviceKeymap((current) =>
-          current == null
-            ? current
-            : produce(current, (draft) => {
-                draft.layers.splice(layerIndex, 1);
-                draft.availableLayers++;
-              }),
-        );
-      } else {
-        console.error("Remove error", resp.keymap?.removeLayer?.err);
-        throw new Error(
-          "Failed to remove layer:" + resp.keymap?.removeLayer?.err,
-        );
-      }
-    }
-
-    async function doRestore(layerId: number, atIndex: number) {
-      if (!conn.conn) {
-        throw new Error("Not connected");
-      }
-
-      const resp = await call_rpc(conn.conn, {
-        keymap: { restoreLayer: { layerId, atIndex } },
-      });
-
-      console.log(resp);
-      if (resp.keymap?.restoreLayer?.ok) {
-        const restoredLayer = resp.keymap.restoreLayer.ok;
-        setDeviceKeymap((current) =>
-          current == null
-            ? current
-            : produce(current, (draft) => {
-                draft.layers.splice(atIndex, 0, restoredLayer);
-                draft.availableLayers--;
-              }),
-        );
-        setSelectedLayerIndex(atIndex);
-      } else {
-        console.error("Remove error", resp.keymap?.restoreLayer?.err);
-        throw new Error(
-          "Failed to restore layer:" + resp.keymap?.restoreLayer?.err,
-        );
-      }
-    }
-
     if (!keymap) {
       throw new Error("No keymap loaded");
     }
 
     const index = selectedLayerIndex;
-    const layerId = keymap.layers[index].id;
-    undoRedo?.(async () => {
-      await doRemove(index);
-      return () => doRestore(layerId, index);
+    const { id, name } = keymap.layers[index];
+
+    void undoRedo?.(async () => {
+      await removeLayerAt(index);
+      setRemovedLayer({ id, index, name: name || `Layer ${index}` });
+
+      return () => {
+        setRemovedLayer(null);
+        return restoreLayerAt(id, index);
+      };
     });
-  }, [conn, keymap, selectedLayerIndex, undoRedo]);
+  }, [keymap, removeLayerAt, restoreLayerAt, selectedLayerIndex, undoRedo]);
+
+  /**
+   * Put the just-removed layer back.
+   *
+   * This goes through the undo stack rather than calling the RPC directly, so
+   * remove and restore stay two ordinary reversible operations instead of one
+   * operation with a side channel that the history knows nothing about.
+   */
+  const restoreRemovedLayer = useCallback(() => {
+    const removed = removedLayer;
+    if (!removed) return;
+    setRemovedLayer(null);
+
+    // The offer outlives ⌘Z on purpose — it is a second way in, not the only
+    // one — so by the time it is taken the layer may already be back. Asking
+    // the keyboard to restore it twice is an error; doing nothing is right.
+    if (keymap?.layers.some((layer) => layer.id === removed.id)) return;
+
+    void undoRedo?.(async () => {
+      await restoreLayerAt(removed.id, removed.index);
+      return () => removeLayerAt(removed.index);
+    });
+  }, [keymap, removeLayerAt, removedLayer, restoreLayerAt, undoRedo]);
+
+  // Ephemeral, per UX.md: an offer that never expires becomes chrome. Twelve
+  // seconds is long enough to read it and reach for it, short enough that it is
+  // gone before it starts describing a keyboard that has moved on.
+  useEffect(() => {
+    if (!removedLayer) return;
+    const timer = setTimeout(() => setRemovedLayer(null), 12_000);
+    return () => clearTimeout(timer);
+  }, [removedLayer]);
 
   const changeLayerName = useCallback(
     (id: number, oldName: string, newName: string) => {
@@ -1534,47 +1655,60 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     }
   }, [keymap, selectedLayerIndex]);
 
+  const structureLocked = countDraftBindings(draftBindings) > 0;
+
+  const copySources = (keymap?.layers ?? [])
+    .map((layer, index) => ({
+      id: `copy:${index}`,
+      label: layer.name || `Layer ${index}`,
+      index,
+    }))
+    .filter(({ index }) => index !== selectedLayerIndex);
+
+  const alphaTargets = alphaBlock
+    ? ALPHA_LAYOUTS.filter((layout) => layout.id !== alphaBlock.layout.id)
+    : [];
+
   return (
-    // One continuous plane. The cluster row sits directly on the substrate
-    // rather than inside a panel band, so the only horizontal division above
-    // the canvas is the app header.
-    //
-    // `main` is the grid itself rather than a `display: contents` wrapper —
-    // that value has a history of dropping elements out of the accessibility
-    // tree, and this is a landmark.
-    // Three panes. Setup lives on the left, the board owns the middle, and what
-    // a key can become lives on the right.
+    // Three panes on one continuous plane: which layer on the left, the board
+    // in the middle, what a key can become on the right. Nothing is docked into
+    // the window edge — each pane is a card floating on the same lit substrate.
     //
     // The board is wide and short, so its binding constraint is width — but the
     // thing that actually broke the previous layout was *height*: a top band
-    // plus a bottom sheet cropped the board between them. Rails cost width
-    // once and give the canvas its full height back, which is the trade that
-    // suits this shape.
+    // plus a bottom sheet cropped the board between them. Rails cost width once
+    // and give the canvas its full height back, which is the trade that suits
+    // this shape. The controls that belong to the board itself do not sit in
+    // either rail; they float in the corners of the canvas.
     //
     // `main` is the grid itself rather than a `display: contents` wrapper —
     // that value has a history of dropping elements out of the accessibility
     // tree, and this is a landmark.
     <main
-      className={`wafer-substrate grid min-h-0 min-w-0 grid-rows-[minmax(24rem,1fr)_auto] gap-2 overflow-auto bg-base-300 p-2 xl:grid-rows-1 xl:overflow-hidden ${columns}`}
+      // Three rows declared, not two: below `xl` there are three children, and
+      // a template of two auto-placed the third into an implicit track. That is
+      // the row-axis version of the trap in §4 of AGENTS.md, and it is only
+      // benign here because implicit rows happen to size the same way.
+      className={`wafer-substrate grid min-h-0 min-w-0 grid-rows-[minmax(22rem,1fr)_auto_auto] gap-2 overflow-auto bg-base-300 p-2 xl:grid-rows-1 xl:overflow-hidden ${columns}`}
     >
-      <aside
-        aria-label="Keyboard setup"
-        hidden={isTyping}
-        className="wafer-float order-1 flex min-h-0 flex-col gap-4 overflow-y-auto p-3 xl:order-none xl:col-start-1 xl:row-start-1"
-      >
-        {layouts && (
-          <PhysicalLayoutPicker
-            layouts={layouts}
-            selectedPhysicalLayoutIndex={selectedPhysicalLayoutIndex}
-            isDisabled={countDraftBindings(draftBindings) > 0}
-            onPhysicalLayoutClicked={doSelectPhysicalLayout}
-          />
-        )}
+      {/* Layers, and nothing else.
+          Everything that used to share this rail has moved to where it is
+          actually about — the board's own controls float on the board, the
+          palette lives in the header, and the two layer edits hide behind the
+          layer list's own menu. Eight stacked clusters in a 13rem column meant
+          the rail scrolled as a whole, so adding a fifth layer pushed zoom off
+          the bottom of the window. What is left is the one control that grows
+          without limit, and it now scrolls inside its own list.
 
-        {/* Vertical, so a layer named "Navigation" reads as "Navigation"
-            rather than as "Navi…". Horizontal chips truncated every name past
-            about six characters, which made the picker useless for exactly the
-            layers people bother to name. */}
+          Vertical, so a layer named "Navigation" reads as "Navigation" rather
+          than as "Navi…". Horizontal chips truncated every name past about six
+          characters, which made the picker useless for exactly the layers
+          people bother to name. */}
+      <aside
+        aria-label="Layers"
+        hidden={isTyping}
+        className="wafer-float order-1 flex min-h-0 flex-col p-3 xl:order-none xl:col-start-1 xl:row-start-1"
+      >
         {keymap && (
           <LayerPicker
             layers={keymap.layers}
@@ -1583,112 +1717,25 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
             onLayerMoved={moveLayer}
             canAdd={(keymap.availableLayers || 0) > 0}
             canRemove={(keymap.layers?.length || 0) > 1}
-            isStructureDisabled={countDraftBindings(draftBindings) > 0}
+            isStructureDisabled={structureLocked}
             onAddClicked={addLayer}
             onRemoveClicked={removeLayer}
             onLayerNameChanged={changeLayerName}
           />
         )}
-
-        {countDraftBindings(draftBindings) > 0 && (
-          <p className="text-xs leading-relaxed text-tertiary">
-            Layer structure and physical layout stay locked until this key draft
-            is applied or discarded.
-          </p>
-        )}
-
-        {keymap && keymap.layers.length > 1 && (
-          // `value={null}` on purpose: this is an action, not a setting, and
-          // leaving a layer name showing afterwards would imply the current
-          // layer is bound to that source from now on.
-          <SelectField
-            label="Copy from"
-            placeholder="Another layer…"
-            value={null}
-            isDisabled={isApplyingDraft}
-            options={keymap.layers
-              .map((layer, index) => ({
-                id: String(index),
-                label: layer.name || `Layer ${index}`,
-              }))
-              .filter((_, index) => index !== selectedLayerIndex)}
-            onChange={(id) => copyLayerFrom(Number(id))}
-          />
-        )}
-
-        {alphaBlock && (
-          <SelectField
-            label="Alphas"
-            placeholder={alphaBlock.layout.name}
-            value={null}
-            isDisabled={isApplyingDraft}
-            options={ALPHA_LAYOUTS.filter(
-              (layout) => layout.id !== alphaBlock.layout.id,
-            ).map((layout) => ({ id: layout.id, label: layout.name }))}
-            onChange={(id) => {
-              const layout = ALPHA_LAYOUTS.find((item) => item.id === id);
-              if (layout) applyAlphaLayout(layout);
-            }}
-          />
-        )}
-
-        {canTypeThrough && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedKeyPosition((current) => current ?? order[0]);
-              setIsTyping(true);
-            }}
-            disabled={isApplyingDraft}
-            className="flex min-h-9 items-center gap-2 rounded-control px-1 text-left text-sm text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40"
-          >
-            <Keyboard2 aria-hidden="true" className="size-4 shrink-0" />
-            <span className="min-w-0 truncate">Type through</span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={openCommandPalette}
-          className="flex min-h-9 items-center gap-2 rounded-control px-1 text-left text-sm text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          <Search aria-hidden="true" className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">All commands</span>
-          <kbd className="shrink-0 rounded border border-line-subtle px-1 font-mono text-[0.5625rem] text-tertiary">
-            ⌘K
-          </kbd>
-        </button>
-
-        {/* Corner anchor: zoom is pinned to the foot of the rail, not stacked
-            under the layers. The two clusters hold opposite corners and the
-            space between them stays empty, so the rail reads as a frame around
-            the canvas rather than as a column of controls. */}
-        <div className="mt-auto flex items-center gap-1 pt-2">
-          <button
-            type="button"
-            aria-label="Fit keyboard to viewport"
-            title="Fit keyboard to viewport"
-            onClick={() => setKeymapScale("auto")}
-            className="grid min-h-9 min-w-9 place-items-center rounded-control text-tertiary outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Maximize2 aria-hidden="true" className="size-4" />
-          </button>
-          <SelectField
-            label="Keyboard zoom"
-            hideLabel
-            value={String(keymapScale)}
-            options={ZOOM_OPTIONS}
-            onChange={(id) => setKeymapScale(deserializeLayoutZoom(id))}
-          />
-        </div>
       </aside>
 
       {/* The canvas catches the application's shared light rather than a
           fixed white glow, which was a bright blob in dark mode. */}
-      <div className="relative order-none min-h-0 min-w-0 xl:col-start-2 xl:row-start-1">
+      <div className={`relative order-none min-h-0 min-w-0 ${canvasPlacement}`}>
+        {/* The vertical padding is load-bearing, not taste: the board controls
+            float in the corners of this box, and Fit sizes the board against
+            the parent's content box (`PhysicalLayout` subtracts the computed
+            padding). Reserving the strip here is what keeps a fitted board from
+            sliding underneath them. */}
         <section
           aria-label="Keyboard layout"
-          className="grid h-full min-h-0 min-w-0 place-items-center overflow-auto p-4 md:p-6"
+          className="grid h-full min-h-0 min-w-0 place-items-center overflow-auto px-4 pb-14 pt-20 md:px-6"
         >
           {layouts && keymap && behaviors ? (
             <KeymapComp
@@ -1717,13 +1764,176 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
           )}
         </section>
 
-        {/* Teaching text rather than chrome: it reserves no layout, and it
-            disappears once a key is selected and the rail says it instead. */}
-        {!shelfOpen && !isTyping && layouts && keymap && behaviors && (
-          <p className="pointer-events-none absolute inset-x-0 bottom-3 px-4 text-center text-xs text-tertiary">
-            Select a key to bind it — shift-click for a run, ⌘/Ctrl-click to add
-            one. Nothing reaches the keyboard until you review the draft.
-          </p>
+        {/* ---- The board's own controls ------------------------------------
+            Anchored to this wrapper rather than to the scrolling section: an
+            absolutely positioned child of an `overflow-auto` element scrolls
+            with the content, which sent these away the moment the canvas
+            panned.
+
+            Which board and how big it is are questions *about the board*, so
+            they are answered on it. In the rail they were two more rows in a
+            column that had already run out of height. */}
+        {!isTyping && (
+          <div className="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] items-start gap-2">
+            {layouts && (
+              <div
+                title={
+                  structureLocked
+                    ? "Apply or discard the key draft before changing the physical layout"
+                    : undefined
+                }
+                className="wafer-float min-w-0 max-w-[10rem] px-2 py-1 sm:max-w-[14rem]"
+              >
+                <PhysicalLayoutPicker
+                  layouts={layouts}
+                  selectedPhysicalLayoutIndex={selectedPhysicalLayoutIndex}
+                  isDisabled={structureLocked}
+                  onPhysicalLayoutClicked={doSelectPhysicalLayout}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* A door, not a control: the whole mode is elsewhere. It sits on the
+            board because the board is what it takes over. */}
+        {!isTyping && canTypeThrough && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedKeyPosition((current) => current ?? order[0]);
+              setIsTyping(true);
+            }}
+            disabled={isApplyingDraft}
+            title="Bind the whole board by typing it — press a key to bind it and advance"
+            // Hidden on the narrowest windows, where it and the layout picker
+            // want more than the canvas is wide. Nothing is lost: the mode is
+            // registered as a command, and typing a board through on a phone
+            // is not a thing anyone is doing.
+            className="wafer-float wafer-dispersive absolute right-2 top-2 hidden min-h-9 items-center gap-2 px-2.5 text-sm font-medium text-muted outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40 sm:flex"
+          >
+            <Keyboard2 aria-hidden="true" className="size-4 shrink-0" />
+            <span className="truncate">Type through</span>
+          </button>
+        )}
+
+        {/* ---- The bottom edge ---------------------------------------------
+            One flex row rather than three independently positioned things.
+            Absolute corners plus absolutely-centred teaching text is a layout
+            that only works at the width you happened to check: at ~54rem the
+            left cluster, a 36rem hint and the zoom cluster want 63rem and
+            silently overlap. As a row they cannot — the hint takes what is
+            left, and drops out entirely when there is not enough of it. */}
+        {!isTyping && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-2 flex items-end justify-between gap-2 px-2">
+            {/* Copy-from and alphas. Both rewrite the whole layer in a single
+                undo entry, so they belong beside the board that is about to
+                change — and down here rather than up top, where they crowded
+                the picker that says which board this even is. */}
+            {copySources.length > 0 || alphaTargets.length > 0 ? (
+              <div className="wafer-float pointer-events-auto flex min-w-0 items-center gap-1 p-1">
+                {copySources.length > 0 && (
+                  <CanvasMenuButton
+                    label="Copy from"
+                    title="Replace this layer's bindings with another layer's"
+                    isDisabled={isApplyingDraft}
+                    items={copySources}
+                    onAction={(id) =>
+                      copyLayerFrom(Number(id.slice("copy:".length)))
+                    }
+                  />
+                )}
+
+                {alphaBlock && alphaTargets.length > 0 && (
+                  <CanvasMenuButton
+                    label="Alphas"
+                    value={alphaBlock.layout.name}
+                    title={`Move the letters off ${alphaBlock.layout.name}, leaving punctuation and thumbs alone`}
+                    isDisabled={isApplyingDraft}
+                    items={alphaTargets.map((layout) => ({
+                      id: `alpha:${layout.id}`,
+                      label: layout.name,
+                    }))}
+                    onAction={(id) => {
+                      const layout = ALPHA_LAYOUTS.find(
+                        (candidate) => `alpha:${candidate.id}` === id,
+                      );
+                      if (layout) applyAlphaLayout(layout);
+                    }}
+                  />
+                )}
+              </div>
+            ) : (
+              // Holds the corner so `justify-between` still pushes zoom right
+              // when this layer has nothing to copy from and no alpha block.
+              <span aria-hidden="true" />
+            )}
+
+            {/* Teaching text rather than chrome: it reserves no layout of its
+                own, and it goes once a key is selected and the rail says it
+                instead. Below `lg` there is no room for it between the two
+                clusters, so it is not there. */}
+            {!shelfOpen && !paint && layouts && keymap && behaviors && (
+              <p className="hidden min-w-0 flex-1 px-2 pb-2 text-center text-xs text-tertiary lg:block">
+                Select a key to bind it — shift-click for a run, ⌘/Ctrl-click to
+                add one. Nothing reaches the keyboard until you review the
+                draft.
+              </p>
+            )}
+
+            <div className="wafer-float pointer-events-auto flex shrink-0 items-center gap-1 p-1">
+              <button
+                type="button"
+                aria-label="Fit keyboard to viewport"
+                title="Fit keyboard to viewport"
+                onClick={() => setKeymapScale("auto")}
+                className="wafer-dispersive grid size-9 place-items-center rounded-control text-tertiary outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <Maximize2 aria-hidden="true" className="size-4" />
+              </button>
+              <SelectField
+                label="Keyboard zoom"
+                hideLabel
+                value={String(keymapScale)}
+                options={ZOOM_OPTIONS}
+                onChange={(id) => setKeymapScale(deserializeLayoutZoom(id))}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* The offer, at the moment it is wanted. `restoreLayer` was in the
+            protocol from the first day and had no way in that did not require
+            knowing what was on the undo stack. */}
+        {removedLayer && !isTyping && (
+          <div
+            role="status"
+            className="wafer-dispersive absolute inset-x-0 bottom-16 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-panel border border-line-subtle bg-panel/95 px-3 py-2 text-xs shadow-[var(--elevation-popover)]"
+            style={
+              { "--dispersion": "var(--dispersion-committed)" } as CSSProperties
+            }
+          >
+            <span className="min-w-0 truncate">
+              <span className="font-semibold text-ink">Removed</span>{" "}
+              <span className="text-muted">{removedLayer.name}</span>
+            </span>
+            <button
+              type="button"
+              onClick={restoreRemovedLayer}
+              className="flex min-h-8 shrink-0 items-center gap-1.5 rounded-control px-2 font-semibold text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <Undo2 aria-hidden="true" className="size-3.5" />
+              Restore
+            </button>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setRemovedLayer(null)}
+              className="grid size-8 shrink-0 place-items-center rounded-control text-tertiary outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <X aria-hidden="true" className="size-3.5" />
+            </button>
+          </div>
         )}
 
         {/* The mode's entire interface. Everything else is gone, because
@@ -1757,7 +1967,9 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
         {paint && (
           <div
             role="status"
-            className="wafer-dispersive absolute inset-x-0 bottom-4 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-panel border border-line-subtle bg-panel/95 px-3 py-2 text-xs shadow-[var(--elevation-popover)]"
+            // Above the zoom cluster's row, which stays up while painting so
+            // the board can be rescaled without leaving the mode.
+            className="wafer-dispersive absolute inset-x-0 bottom-16 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-panel border border-line-subtle bg-panel/95 px-3 py-2 text-xs shadow-[var(--elevation-popover)]"
             style={
               { "--dispersion": "var(--dispersion-committed)" } as CSSProperties
             }
@@ -1803,6 +2015,12 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
         hidden={!shelfOpen || isTyping}
         className="wafer-float order-2 flex min-h-0 flex-col xl:order-none xl:col-start-3 xl:row-start-1"
       >
+        {/* Below `xl` this is a card in a stacked, page-scrolling layout, so
+            the catalogue is laid out at its natural height and the page
+            scrolls. It used to keep the rail's `flex-1` scroller here, where
+            there is no bounded height to flex against — the catalogue resolved
+            to a few pixels and the panel rendered as an empty sliver with a
+            scrollbar in it. That is the "broken key menu" on a narrow window. */}
         {shelfOpen && (
           <>
             {/* Identity on one row, actions on their own.
@@ -1891,7 +2109,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
               </div>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="p-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
               {keymap && selectedBinding && (
                 <BehaviorBindingPicker
                   key={`${selectedLayerIndex}:${selectedKeyPosition}`}

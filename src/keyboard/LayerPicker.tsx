@@ -182,9 +182,14 @@ export const LayerPicker = ({
   );
 
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="mb-1.5 grid grid-cols-[1fr_auto_auto] items-center gap-0.5">
-        <Label className="px-1 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
+    // `min-h-0 flex-1` so the *list* scrolls rather than the rail around it —
+    // but only at `xl`, where the rail is a full-height column with a bounded
+    // height to scroll within. Below that the rail is a short auto-height card
+    // in a stacked page, and claiming flex there gave the list a height of
+    // nothing to scroll inside.
+    <div className="flex min-w-0 flex-col xl:min-h-0 xl:flex-1">
+      <div className="mb-1.5 flex items-center gap-0.5">
+        <Label className="min-w-0 flex-1 truncate px-1 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-tertiary">
           Layers
         </Label>
         {onRemoveClicked && (
@@ -239,7 +244,12 @@ export const LayerPicker = ({
         className={
           orientation === "horizontal"
             ? "grid cursor-pointer auto-cols-[minmax(7.25rem,8.75rem)] grid-flow-col gap-0.5 overflow-x-auto pb-1"
-            : "grid cursor-pointer gap-0.5 max-md:auto-cols-[minmax(8rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1"
+            : // Below `md` this is a horizontal strip of chips, so a *vertical*
+              // overflow rule here put a second, useless scrollbar on a row
+              // that scrolls sideways. The vertical scroller belongs only to
+              // the `xl` rail, which is the only place the list is a column
+              // inside a bounded height.
+              "grid cursor-pointer gap-0.5 max-md:auto-cols-[minmax(8rem,1fr)] max-md:grid-flow-col max-md:overflow-x-auto max-md:pb-1 xl:min-h-0 xl:flex-1 xl:auto-rows-min xl:overflow-y-auto"
         }
         onSelectionChange={selectionChanged}
         dragAndDropHooks={dragAndDropHooks}
@@ -248,7 +258,11 @@ export const LayerPicker = ({
         {(layer_item) => (
           <ListBoxItem
             textValue={layer_item.name}
-            className="group grid min-h-10 grid-cols-[auto_auto_1fr_auto] items-center gap-1 rounded-[var(--radius-control)] px-1 text-sm outline-none transition-colors hover:bg-hover rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:bg-selected/80 rac-selected:text-accent-foreground"
+            // Dispersive, so the layer you are editing carries the same
+            // spectral edge as the key you are editing. Selection had gone
+            // colourless when the accent became achromatic, which left the
+            // active layer marked only by a slightly different grey.
+            className="wafer-dispersive group grid min-h-10 grid-cols-[auto_auto_1fr_auto] items-center gap-1 rounded-[var(--radius-control)] px-1 text-sm outline-none transition-colors hover:bg-hover rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:bg-selected/80 rac-selected:text-accent-foreground"
           >
             <GripVertical
               aria-hidden="true"

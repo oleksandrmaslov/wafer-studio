@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Info, TriangleAlert, Unplug } from "lucide-react";
+import { Info, Scale, TriangleAlert, Unplug } from "lucide-react";
 import { ConnectModal, TransportFactory } from "./ConnectModal";
 
 import type { RpcTransport } from "@zmkfirmware/zmk-studio-ts-client/transport/index";
@@ -41,7 +41,6 @@ import type {
   DraftApplyResult,
   KeymapDraftController,
 } from "./keyboard/keymapDraft";
-import { useWaferFinish } from "./appearance";
 import { CommandPaletteProvider } from "./design-system/CommandPalette";
 import { useCommands, type Command } from "./design-system/commandRegistry";
 
@@ -197,11 +196,13 @@ function ShellCommands({
   onDisconnect,
   onResetSettings,
   onShowAbout,
+  onShowLicenseNotice,
   connected,
 }: {
   onDisconnect: () => void;
   onResetSettings: () => void;
   onShowAbout: () => void;
+  onShowLicenseNotice: () => void;
   connected: boolean;
 }) {
   const commands = useMemo<Command[]>(
@@ -212,6 +213,18 @@ function ShellCommands({
         section: "Application",
         icon: Info,
         run: onShowAbout,
+      },
+      {
+        // Registered here rather than left in the header, which no longer has a
+        // menu to hold it. This one is not optional the way a convenience row
+        // is: the project ships a NOTICE file and the attributions in it have to
+        // stay reachable from the running application.
+        id: "shell.licenses",
+        label: "Open-source notices",
+        section: "Application",
+        icon: Scale,
+        keywords: "license licence attribution notice legal",
+        run: onShowLicenseNotice,
       },
       {
         id: "shell.disconnect",
@@ -233,7 +246,13 @@ function ShellCommands({
         run: onResetSettings,
       },
     ],
-    [connected, onDisconnect, onResetSettings, onShowAbout],
+    [
+      connected,
+      onDisconnect,
+      onResetSettings,
+      onShowAbout,
+      onShowLicenseNotice,
+    ],
   );
 
   useCommands(commands);
@@ -241,7 +260,6 @@ function ShellCommands({
 }
 
 function App() {
-  const [waferFinish, setWaferFinish] = useWaferFinish();
   const [conn, setConn] = useState<ConnectionState>({ conn: null });
   const [connectedDeviceName, setConnectedDeviceName] = useState<
     string | undefined
@@ -428,6 +446,7 @@ function App() {
               onDisconnect={disconnect}
               onResetSettings={resetSettings}
               onShowAbout={() => setShowAbout(true)}
+              onShowLicenseNotice={() => setShowLicenseNotice(true)}
             />
             <div className="grid h-[100dvh] min-h-0 w-full max-w-[100vw] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base-100 text-base-content">
               <AppHeader
@@ -442,8 +461,6 @@ function App() {
                 onResetSettings={resetSettings}
                 onShowAbout={() => setShowAbout(true)}
                 onShowLicenseNotice={() => setShowLicenseNotice(true)}
-                waferFinish={waferFinish}
-                onWaferFinishChange={setWaferFinish}
                 draftCount={draftController?.draftCount || 0}
                 draftChanges={draftController?.changes || []}
                 draftErrors={draftController?.errors || []}
