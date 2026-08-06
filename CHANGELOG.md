@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/oleksandrmaslov/wafer-studio/compare/v0.4.0...v0.5.0) (2026-08-06)
+
+
+### Features
+
+* add a 404 page, split About out of the bundle, keep an icon master ([9fd3cec](https://github.com/oleksandrmaslov/wafer-studio/commit/9fd3cec3b757891d94dc8345883e9351767191a5))
+* add social share cards, touch icons and a web manifest ([a577a30](https://github.com/oleksandrmaslov/wafer-studio/commit/a577a30eb64145fcc84a86f59e090ccf2f3123cf))
+* credit the author and show the running version in About ([9904a06](https://github.com/oleksandrmaslov/wafer-studio/commit/9904a0676bbd3596590dc0c25400439307fd5786))
+* replace app icon with the metallic wafer mark ([25f5ffb](https://github.com/oleksandrmaslov/wafer-studio/commit/25f5ffb08ae1d69bea3e863452e8c84fc35634fa))
+
+
+### Bug Fixes
+
+* redeploy under the wafer-studio name and tighten Apache-2.0 provenance ([daf7372](https://github.com/oleksandrmaslov/wafer-studio/commit/daf7372fff40b1c7408953b10d1ab4aeb3cbd11f))
+
 ## [0.3.1](https://github.com/zmkfirmware/zmk-studio/compare/v0.3.0...v0.3.1) (2025-01-20)
 
 
