@@ -127,6 +127,10 @@ export default defineConfig({
         main: "./index.html",
         download: "./download.html",
         design: "./design.html",
+        // An entry point rather than a file in public/ purely so %BASE_URL%
+        // gets substituted. A 404 is served at whatever path was missed, so
+        // its links back into the site cannot be relative.
+        404: "./404.html",
       },
     },
   },

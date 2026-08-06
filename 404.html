@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" href="%BASE_URL%wafer-mark.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0c0d0e" />
+    <!-- A 404 carries no content worth indexing and exists at every wrong URL,
+         so keeping it out of the index avoids competing with the real pages. -->
+    <meta name="robots" content="noindex, follow" />
+    <title>Key not found — Wafer Studio</title>
+
+    <style>
+      :root {
+        --ground: #f7f8f9;
+        --panel: #fff;
+        --cap-top: #fdfdfd;
+        --cap-side: #d6dade;
+        --line: #dfe3e8;
+        --ink: #14171a;
+        --muted: #626b75;
+        --link: #2f6fd0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ground: #0c0d0e;
+          --panel: #161719;
+          --cap-top: #26292d;
+          --cap-side: #121417;
+          --line: #24272b;
+          --ink: #e9edf2;
+          --muted: #8b929b;
+          --link: #6fa8ff;
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background: var(--ground);
+        color: var(--ink);
+        font: 400 16px/1.6 Inter, ui-sans-serif, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        text-align: center;
+        max-width: 33rem;
+      }
+
+      /* ---- the keycaps ---- */
+      .keys { display: flex; gap: 14px; }
+
+      .cap {
+        width: 74px;
+        height: 74px;
+        border: 0;
+        padding: 0;
+        border-radius: 10px;
+        background: var(--cap-top);
+        color: var(--ink);
+        font: 600 27px/1 inherit;
+        font-family: inherit;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        /* The lip under the cap is what sells the travel: it shrinks as the
+           key goes down rather than the cap simply moving. */
+        box-shadow: 0 5px 0 var(--cap-side), 0 7px 12px rgb(0 0 0 / 0.22);
+        transform: translateY(0);
+        transition: transform 90ms ease, box-shadow 90ms ease;
+      }
+
+      .cap:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+
+      .cap.is-down {
+        transform: translateY(5px);
+        box-shadow: 0 0 0 var(--cap-side), 0 1px 3px rgb(0 0 0 / 0.3);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cap { transition: none; }
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      p { margin: 0; color: var(--muted); text-wrap: pretty; }
+
+      .hint {
+        font-size: 13px;
+        color: var(--muted);
+        opacity: 0.75;
+      }
+
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--ink);
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+      }
+      .btn.primary { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+      .btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <div class="keys" id="keys">
+        <button class="cap" data-key="4" aria-label="4">4</button>
+        <button class="cap" data-key="0" aria-label="0">0</button>
+        <button class="cap" data-key="4" aria-label="4">4</button>
+      </div>
+
+      <div>
+        <h1>Key not found</h1>
+        <p>
+          That page is not bound to anything. It may have moved, or the link
+          may have been mistyped.
+        </p>
+      </div>
+
+      <p class="hint">Press 4, 0 or 4 — the caps still work.</p>
+
+      <div class="actions">
+        <a class="btn primary" href="%BASE_URL%">Open the editor</a>
+        <a class="btn" href="%BASE_URL%download.html">Download the app</a>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        var caps = Array.prototype.slice.call(
+          document.querySelectorAll(".cap")
+        );
+
+        function press(cap) {
+          cap.classList.add("is-down");
+        }
+        function release(cap) {
+          cap.classList.remove("is-down");
+        }
+
+        caps.forEach(function (cap) {
+          // Pointer travel. Leaving the cap mid-press releases it, so a drag
+          // off the key does not strand it in the down state.
+          cap.addEventListener("pointerdown", function () { press(cap); });
+          ["pointerup", "pointerleave", "pointercancel"].forEach(function (e) {
+            cap.addEventListener(e, function () { release(cap); });
+          });
+          // The browser already fires click on Space and Enter for a button;
+          // animate those too so keyboard use matches pointer use.
+          cap.addEventListener("keydown", function (e) {
+            if (e.key === " " || e.key === "Enter") press(cap);
+          });
+          cap.addEventListener("keyup", function () { release(cap); });
+        });
+
+        // Typing 4 or 0 anywhere presses the matching caps. Both 4s light up,
+        // which is the joke.
+        document.addEventListener("keydown", function (e) {
+          if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+          caps.forEach(function (cap) {
+            if (cap.dataset.key === e.key) press(cap);
+          });
+        });
+        document.addEventListener("keyup", function (e) {
+          caps.forEach(function (cap) {
+            if (cap.dataset.key === e.key) release(cap);
+          });
+        });
+        // A held key that loses focus never sends keyup, so clear on blur.
+        window.addEventListener("blur", function () { caps.forEach(release); });
+      })();
+    </script>
+  </body>
+</html>
