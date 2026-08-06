@@ -2,8 +2,16 @@
 // Based on ZMK Studio, licensed under Apache-2.0.
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFileSync } from "node:fs";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
+
+// package.json is the version release-please bumps, so it is the one the About
+// dialog should quote. Read rather than imported: a JSON import here would need
+// import attributes, which vary by Node version, for no benefit.
+const appVersion: string = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8")
+).version;
 
 // Project pages live under /<repo>/, so the base is supplied by CI rather than
 // hard-coded — a repository rename should not require a source change. Keep the
@@ -87,6 +95,9 @@ function seoFiles(): Plugin {
 export default defineConfig({
   base,
   plugins: [react(), seoFiles()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   // prevent vite from obscuring rust errors
   clearScreen: false,
   // Tauri expects a fixed port, fail if that port is not available

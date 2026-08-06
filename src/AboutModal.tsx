@@ -210,6 +210,14 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
             official ZMK application.
           </p>
           <dl className="mt-4 grid max-w-xl grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <dt className="text-base-content/50">Made by</dt>
+            <dd>
+              <ExternalLink href="https://github.com/oleksandrmaslov">
+                Oleksandr Maslov
+              </ExternalLink>
+            </dd>
+            <dt className="text-base-content/50">Version</dt>
+            <dd className="font-mono tabular-nums">{__APP_VERSION__}</dd>
             <dt className="text-base-content/50">Studio client</dt>
             <dd className="font-mono tabular-nums">0.0.18</dd>
             <dt className="text-base-content/50">Compatibility</dt>
