@@ -6,9 +6,9 @@
 
 **A keyboard configurator for ZMK Studio-enabled keyboards.**
 
-[Open in your browser](https://oleksandrmaslov.github.io/wafer-zmk-studio/) ·
-[Download for desktop](https://oleksandrmaslov.github.io/wafer-zmk-studio/download.html) ·
-[Releases](https://github.com/oleksandrmaslov/wafer-zmk-studio/releases)
+[Open in your browser](https://oleksandrmaslov.github.io/wafer-studio/) ·
+[Download for desktop](https://oleksandrmaslov.github.io/wafer-studio/download.html) ·
+[Releases](https://github.com/oleksandrmaslov/wafer-studio/releases)
 
 </div>
 

@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import React, {
   SetStateAction,
   type CSSProperties,
@@ -1446,11 +1450,35 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
     for (const position of order) {
       const binding = bindings[position];
-      if (!binding || binding.behaviorId !== keyPressBehaviorId) continue;
-      if (getHidImplicitModifierMask(binding.param1) !== 0) continue;
+      if (!binding) continue;
+
+      /*
+       * A letter counts whether it is on a plain key press or on the tap side
+       * of a hold-tap.
+       *
+       * Only `&kp` counted at first, which quietly excluded the single most
+       * common thing people put on a Corne: home-row mods. With `A S D F` on
+       * `&mt`, the collected sequence came out as 19 letters instead of 26,
+       * matched nothing, and the feature declined — on exactly the boards it
+       * was built for. The alphabet is still an alphabet when four of its
+       * letters double as modifiers.
+       *
+       * Hold-taps put the tap keycode in param2 (`&mt LCTRL A`, `&lt 1 A`),
+       * which is the same convention `applyWrapped` relies on.
+       */
+      const behavior = behaviors[binding.behaviorId];
+      const usage =
+        binding.behaviorId === keyPressBehaviorId
+          ? binding.param1
+          : behavior && isMultiBehavior(behavior)
+            ? binding.param2
+            : undefined;
+
+      if (usage === undefined) continue;
+      if (getHidImplicitModifierMask(usage) !== 0) continue;
 
       const [page, id] = hid_usage_page_and_id_from_usage(
-        getHidBaseUsage(binding.param1),
+        getHidBaseUsage(usage),
       );
       if (page !== HID_KEYBOARD_USAGE_PAGE) continue;
 
@@ -1463,7 +1491,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
 
     const layout = detectAlphaLayout(letters);
     return layout ? { positions, layout } : undefined;
-  }, [keymap, keyPressBehaviorId, order, selectedLayerIndex]);
+  }, [behaviors, keymap, keyPressBehaviorId, order, selectedLayerIndex]);
 
   /**
    * Move the alphas onto another layout, in one undo entry.
@@ -1491,20 +1519,29 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
         (position) => [position, { ...layer.bindings[position] }] as const,
       );
       const incoming = [...changes].map(([position, letter]) => {
+        const existing = layer.bindings[position];
         const usageId = usageIdForLetter(letter);
+
+        // Now that hold-taps are *detected*, they have to be written back as
+        // hold-taps. Replacing them with a plain key press would silently strip
+        // the modifier off every home-row key the moment someone switched to
+        // Colemak — a layout swap that also deletes half your mods is worse
+        // than no layout swap at all. Only the tap side moves.
+        const existingBehavior = behaviors[existing.behaviorId];
+        const isHoldTap = Boolean(
+          existingBehavior && isMultiBehavior(existingBehavior),
+        );
+
+        if (usageId === undefined) return [position, { ...existing }] as const;
+
+        const usage =
+          hid_usage_from_page_and_id(HID_KEYBOARD_USAGE_PAGE, usageId) >>> 0;
+
         return [
           position,
-          {
-            behaviorId: keyPressBehaviorId,
-            param1:
-              usageId === undefined
-                ? layer.bindings[position].param1
-                : hid_usage_from_page_and_id(
-                    HID_KEYBOARD_USAGE_PAGE,
-                    usageId,
-                  ) >>> 0,
-            param2: 0,
-          },
+          isHoldTap
+            ? { ...existing, param2: usage }
+            : { behaviorId: keyPressBehaviorId, param1: usage, param2: 0 },
         ] as const;
       });
 
@@ -1531,6 +1568,7 @@ export default function Keyboard({ onDraftStateChange }: KeyboardProps) {
     },
     [
       alphaBlock,
+      behaviors,
       deviceKeymap,
       isApplyingDraft,
       keymap,

@@ -40,7 +40,7 @@ jobs:
         run: echo "tag=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
 
       - id: create
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
         with:
@@ -107,7 +107,7 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-24.04'
@@ -117,7 +117,7 @@ jobs:
             libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: "npm"
@@ -154,7 +154,7 @@ jobs:
           releaseDraft: true
 
       - name: keep the raw bundles too
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wafer-studio-${{ matrix.name }}
           if-no-files-found: warn

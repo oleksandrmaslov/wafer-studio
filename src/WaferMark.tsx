@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 export interface WaferMarkProps {
   className?: string;
   compact?: boolean;

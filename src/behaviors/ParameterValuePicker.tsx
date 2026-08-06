@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import { BehaviorParameterValueDescription } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
 import { useId } from "react";
 import { VisualHidUsagePicker } from "./VisualHidUsagePicker";

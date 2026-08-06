@@ -2,16 +2,65 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" type="image/png" href="%BASE_URL%wafer-mark.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <link rel="manifest" href="%BASE_URL%site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0c0d0e" />
+
+    <title>Download Wafer Studio for Windows, macOS and Linux</title>
     <meta
       name="description"
-      content="Download Wafer Studio for Windows, macOS, and Linux — the desktop build adds Bluetooth keyboard connections."
+      content="Download the Wafer Studio desktop app for Windows, macOS and Linux. The desktop build adds Bluetooth keyboard connections on platforms where browsers do not expose Web Bluetooth."
     />
-    <title>Download Wafer Studio</title>
+    <link rel="canonical" href="%SITE_URL%download.html" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wafer Studio" />
+    <meta
+      property="og:title"
+      content="Download Wafer Studio for Windows, macOS and Linux"
+    />
+    <meta
+      property="og:description"
+      content="The desktop build adds Bluetooth keyboard connections on platforms where browsers do not expose Web Bluetooth."
+    />
+    <meta property="og:url" content="%SITE_URL%download.html" />
+    <meta property="og:image" content="%SITE_URL%og-card-download.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Wafer Studio — desktop app for macOS, Windows and Linux"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="%SITE_URL%og-card-download.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- React replaces this on mount; see the note in index.html. -->
+    <div id="root">
+      <main>
+        <h1>Download Wafer Studio</h1>
+        <p>
+          Wafer Studio is available as a desktop app for Windows, macOS and
+          Linux. Over USB the
+          <a href="%BASE_URL%">web version</a> does everything the desktop build
+          does — the desktop build exists because browsers only expose Web
+          Bluetooth for this on Linux, so a wireless keyboard needs it on Windows
+          and macOS.
+        </p>
+        <p>
+          Builds are published on the
+          <a
+            href="https://github.com/oleksandrmaslov/wafer-studio/releases/latest"
+            >releases page</a
+          >. They are unsigned, so Windows SmartScreen and macOS Gatekeeper will
+          warn on first run.
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/download.tsx"></script>
   </body>
 </html>

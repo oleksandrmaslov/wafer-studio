@@ -1,7 +1,12 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import { GripVertical, Minus, Pencil, Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import {
   DropIndicator,
+  type Key,
   Label,
   ListBox,
   ListBoxItem,
@@ -166,8 +171,38 @@ export const LayerPicker = ({
       [...keys].map((key) => ({ "text/plain": key.toLocaleString() })),
     onReorder(e) {
       if (isStructureDisabled) return;
-      const startIndex = layer_items.findIndex((l) => e.keys.has(l.id));
-      const endIndex = layer_items.findIndex((l) => l.id === e.target.key);
+
+      /*
+       * Keys are compared as strings, and the drop position is honoured.
+       *
+       * Both were bugs, and together they made the drag do nothing at all. A
+       * react-aria `Key` is `string | number` and does not have to come back as
+       * the type it went in as, so `l.id === e.target.key` could compare a
+       * number against a string, return -1 for the destination, and send the
+       * keyboard a move to index -1. Nothing moved and nothing errored.
+       *
+       * `dropPosition` is the second half: dropping *after* the last chip is
+       * the only way to move a layer to the end, and ignoring it made the last
+       * position unreachable.
+       */
+      const sameKey = (a: Key, b: Key) => String(a) === String(b);
+
+      const startIndex = layer_items.findIndex((l) =>
+        [...e.keys].some((key) => sameKey(key, l.id)),
+      );
+      const targetIndex = layer_items.findIndex((l) =>
+        sameKey(l.id, e.target.key),
+      );
+      if (startIndex === -1 || targetIndex === -1) return;
+
+      // "after" means the slot past the target — but removing the dragged chip
+      // first shifts everything above it down by one, so a downward move lands
+      // one short without this.
+      let endIndex =
+        e.target.dropPosition === "after" ? targetIndex + 1 : targetIndex;
+      if (startIndex < endIndex) endIndex -= 1;
+
+      if (endIndex === startIndex) return;
       onLayerMoved?.(startIndex, endIndex);
     },
   });
@@ -264,9 +299,12 @@ export const LayerPicker = ({
             // active layer marked only by a slightly different grey.
             className="wafer-dispersive group grid min-h-10 grid-cols-[auto_auto_1fr_auto] items-center gap-1 rounded-[var(--radius-control)] px-1 text-sm outline-none transition-colors hover:bg-hover rac-focus-visible:ring-2 rac-focus-visible:ring-focus rac-selected:bg-selected/80 rac-selected:text-accent-foreground"
           >
+            {/* The only visible sign the row can be dragged, so it gets the
+                cursor to match — the chips were reorderable all along and
+                nothing said so. */}
             <GripVertical
               aria-hidden="true"
-              className="size-3.5 text-tertiary/55"
+              className="size-3.5 cursor-grab text-tertiary/55 active:cursor-grabbing group-hover:text-tertiary"
             />
             <span className="grid size-5 place-items-center font-mono text-[0.625rem] text-tertiary">
               {layer_item.index}

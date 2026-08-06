@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 import type { GetBehaviorDetailsResponse } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
 import type { GetDeviceInfoResponse } from "@zmkfirmware/zmk-studio-ts-client/core";
 import type {

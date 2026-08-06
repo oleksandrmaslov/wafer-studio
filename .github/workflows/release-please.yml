@@ -14,18 +14,34 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: googleapis/release-please-action@v4
+      # v5 is the first release built against Node 24. v4 declared `using:
+      # node20`, which the runner now warns about on every run.
+      #
+      # No `token:` input on purpose. Upstream passed a PAT
+      # (ZMK_STUDIO_RELEASE_TOKEN) that only exists in the zmkfirmware
+      # repository, so here the action received an empty string and failed with
+      # "Input required and not supplied: token" before doing any work.
+      # Omitting the input falls back to ${{ github.token }}, which the job
+      # permissions above already scope correctly. This needs "Allow GitHub
+      # Actions to create and approve pull requests" enabled under
+      # Settings -> Actions -> General.
+      - uses: googleapis/release-please-action@v5
         id: release
-        with:
-          token: ${{ secrets.ZMK_STUDIO_RELEASE_TOKEN }}
-      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v7
         if: ${{ steps.release.outputs.release_created }}
         with:
           ref: prod
+          # The fast-forward below needs both branches' history. A shallow
+          # checkout leaves `git pull --ff-only origin main` with no common
+          # ancestor to work from.
+          fetch-depth: 0
+
+      # Pushes with the credentials actions/checkout persisted, so there is no
+      # second token to keep in sync.
       - name: publish to prod branch
         if: ${{ steps.release.outputs.release_created }}
         run: |
           git fetch origin main
           git pull --ff-only origin main
-          git remote set-url origin "https://x-access-token:${{ secrets.ZMK_STUDIO_RELEASE_TOKEN }}@github.com/${{ github.repository }}.git"
           git push

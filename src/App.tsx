@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import { AppHeader } from "./AppHeader";
 
 import { create_rpc_connection } from "@zmkfirmware/zmk-studio-ts-client";
@@ -7,6 +11,8 @@ import type { Notification } from "@zmkfirmware/zmk-studio-ts-client/studio";
 import { ConnectionState, ConnectionContext } from "./rpc/ConnectionContext";
 import {
   Dispatch,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -34,7 +40,12 @@ import { LockState } from "@zmkfirmware/zmk-studio-ts-client/core";
 import { LockStateContext } from "./rpc/LockStateContext";
 import { UnlockModal } from "./UnlockModal";
 import { valueAfter } from "./misc/async";
-import { AboutModal } from "./AboutModal";
+// Split out of the initial bundle. About carries the full licence and notice
+// text plus every sponsor logo, none of which is needed to edit a keymap, and
+// it opens only when someone deliberately asks for it.
+const AboutModal = lazy(() =>
+  import("./AboutModal").then((m) => ({ default: m.AboutModal }))
+);
 import { LicenseNoticeModal } from "./misc/LicenseNoticeModal";
 import { createMockRpcTransport } from "./rpc/mockTransport";
 import type {
@@ -435,7 +446,14 @@ function App() {
             onExploreDemo={onExploreDemo}
             connectionError={connectionError}
           />
-          <AboutModal open={showAbout} onClose={() => setShowAbout(false)} />
+          {/* Mounted only while open, so the chunk is fetched on first use.
+              useModalRef opens the dialog from an effect, which still fires
+              on mount, so nothing depends on a false-to-true transition. */}
+          {showAbout && (
+            <Suspense fallback={null}>
+              <AboutModal open onClose={() => setShowAbout(false)} />
+            </Suspense>
+          )}
           <LicenseNoticeModal
             open={showLicenseNotice}
             onClose={() => setShowLicenseNotice(false)}

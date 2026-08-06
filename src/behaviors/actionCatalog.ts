@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 import {
   hid_usage_from_page_and_id,
   hid_usage_get_label,
