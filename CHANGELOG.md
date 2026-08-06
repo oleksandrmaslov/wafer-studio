@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0](https://github.com/oleksandrmaslov/wafer-studio/compare/v0.4.0...v0.5.0) (2026-08-06)
+
+### Features
+
+- Replace the app icon with the metallic wafer mark, regenerated for every desktop, Android and iOS size from the 6000px master rather than resampled from the old 512px asset
+- Add social share cards, an apple-touch icon, a maskable Android icon, a multi-resolution favicon and a web manifest
+- Credit the author and show the running version in About
+- Add an interactive 404 page
+- Load About on demand, taking about 9.5 KB gzipped off the initial bundle
+
+### Bug Fixes
+
+- Restore deployment after the repository rename: the workflow still named the old repository, so every push skipped and the site went stale with nothing failing to notice
+- Use the job's own scoped token in release-please, which was passing a secret that only exists upstream and receiving an empty string
+- Move the desktop bundle off the upstream `dev.zmk.studio` identifier and `zmk-studio` binary name
+- Ship LICENSE and NOTICE inside the installers, as Apache-2.0 section 4 requires
+- Make the site indexable: robots, sitemap, canonical, structured data and crawlable content, all generated from the deploy URL
+- Drop `tauri-build.yml`, which expected Apple and Azure signing secrets that do not exist in this repository and failed every run
+
 ## [0.3.1](https://github.com/zmkfirmware/zmk-studio/compare/v0.3.0...v0.3.1) (2025-01-20)
 
 
