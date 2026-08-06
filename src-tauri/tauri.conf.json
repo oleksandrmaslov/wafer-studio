@@ -7,13 +7,16 @@
     "frontendDist": "../dist/"
   },
   "productName": "Wafer Studio",
-  "mainBinaryName": "zmk-studio",
+  "mainBinaryName": "wafer-studio",
   "version": "0.4.0",
-  "identifier": "dev.zmk.studio",
+  "identifier": "io.github.oleksandrmaslov.wafer-studio",
   "bundle": {
     "active": true,
     "category": "Productivity",
-    "copyright": "",
+    "copyright": "Copyright 2026 Oleksandr Maslov. Based on ZMK Studio, Copyright 2024 The ZMK Contributors.",
+    "license": "Apache-2.0",
+    "licenseFile": "../LICENSE",
+    "publisher": "Oleksandr Maslov",
     "linux": {
       "deb": {
         "depends": []
@@ -27,7 +30,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "longDescription": "",
+    "longDescription": "Wafer Studio is an independent configurator for keyboards running ZMK Studio-enabled firmware. It speaks the official ZMK Studio protocol over USB and Bluetooth. Wafer Studio is a derivative of ZMK Studio and is not an official ZMK project.",
     "macOS": {
       "entitlements": null,
       "exceptionDomain": "",
@@ -35,8 +38,11 @@
       "providerShortName": null,
       "signingIdentity": "-"
     },
-    "resources": [],
-    "shortDescription": "",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../NOTICE": "NOTICE"
+    },
+    "shortDescription": "An independent configurator for ZMK Studio-enabled keyboards.",
     "targets": "all",
     "windows": {}
   },

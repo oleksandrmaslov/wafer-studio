@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import type React from "react";
 import { PropsWithChildren } from "react";
 import BehaviorShortNames from "./behavior-short-names.json";

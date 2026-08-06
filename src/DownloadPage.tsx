@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -71,7 +75,7 @@ const assets: ReleaseAsset[] = release.assets ?? [];
 const version = release.tag_name;
 const releasesUrl =
   release.html_url ??
-  "https://github.com/oleksandrmaslov/wafer-zmk-studio/releases";
+  "https://github.com/oleksandrmaslov/wafer-studio/releases";
 const repoUrl = releasesUrl.replace(/\/releases(\/.*)?$/, "");
 
 function detectPlatform(): Platform {

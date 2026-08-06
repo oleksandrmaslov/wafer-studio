@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import fs from "fs/promises";
 import path from "path";
 import url from "url";
@@ -14,7 +18,7 @@ const __dirname = path.resolve(__filename, "../..");
  * without editing the script.
  */
 const REPO =
-  process.env.WAFER_RELEASE_REPO || "oleksandrmaslov/wafer-zmk-studio";
+  process.env.WAFER_RELEASE_REPO || "oleksandrmaslov/wafer-studio";
 
 const DATA_FILE = path.resolve(__dirname, "src", "data", "release-data.json");
 

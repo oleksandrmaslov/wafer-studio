@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 export { ActionRow, type ActionRowProps } from "./ActionRow.tsx";
 export { SearchField, type SearchFieldProps } from "./SearchField.tsx";
 export {

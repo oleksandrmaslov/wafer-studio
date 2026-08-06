@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 import type { PhysicalLayout } from "@zmkfirmware/zmk-studio-ts-client/keymap";
 import {
   HID_KEYBOARD_USAGE_PAGE,

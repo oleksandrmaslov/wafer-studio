@@ -1,3 +1,7 @@
+// Modified by Oleksandr Maslov for Wafer Studio, 2026.
+// Based on ZMK Studio, licensed under Apache-2.0.
+// SPDX-License-Identifier: Apache-2.0
+
 import React from "react";
 import { useModalRef } from "./misc/useModalRef";
 
@@ -42,6 +46,13 @@ import splitkb from "./assets/splitkb.png";
 import splitkbDarkMode from "./assets/splitkb-dark-mode.png";
 import { GenericModal } from "./GenericModal";
 import { ExternalLink } from "./misc/ExternalLink";
+
+// Apache-2.0 section 4 requires the licence and the NOTICE to travel with every
+// copy, not just with the repository. Inlining them as text means the web build
+// and the desktop build show the same thing without a filesystem plugin; the
+// installers additionally ship both files as bundle resources.
+import LICENSE from "../LICENSE?raw";
+import NOTICE from "../NOTICE?raw";
 
 export interface AboutModalProps {
   open: boolean;
@@ -228,6 +239,10 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
           . The official ZMK Studio interface is made possible by its
           contributors and the following sponsors.
         </p>
+        <p className="mt-3 rounded-lg border border-line bg-base-100 px-3 py-2 text-xs leading-relaxed text-base-content/60">
+          These companies supported the upstream ZMK Studio project. They do not
+          sponsor or endorse Wafer Studio.
+        </p>
       </div>
       <div className="grid auto-rows-auto grid-cols-[auto_minmax(min-content,1fr)] items-center justify-items-center gap-2 rounded-xl border border-line bg-base-100 p-4">
         {sponsors.map((s) => {
@@ -271,6 +286,48 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
             </React.Fragment>
           );
         })}
+      </div>
+
+      <div className="pt-6">
+        <h2 className="font-semibold">Licenses and attribution</h2>
+        <p className="mt-2 text-sm leading-relaxed text-base-content/65">
+          Wafer Studio is a derivative of{" "}
+          <ExternalLink href="https://github.com/zmkfirmware/zmk-studio">
+            ZMK Studio
+          </ExternalLink>
+          , Copyright 2024 The ZMK Contributors, and is released under the same
+          Apache License, Version 2.0. Source files changed from upstream carry a
+          modification notice in their header, and{" "}
+          <ExternalLink href="https://github.com/oleksandrmaslov/wafer-studio/blob/main/MODIFICATIONS.md">
+            MODIFICATIONS.md
+          </ExternalLink>{" "}
+          lists what changed. Desktop builds install a copy of the LICENSE and
+          NOTICE files alongside the application.
+        </p>
+
+        <details className="group mt-4 rounded-xl border border-line bg-base-100">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold marker:content-none">
+            NOTICE
+            <span className="ml-2 font-normal text-base-content/50 group-open:hidden">
+              show
+            </span>
+          </summary>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-line px-4 py-3 font-mono text-xs text-base-content/70">
+            {NOTICE}
+          </pre>
+        </details>
+
+        <details className="group mt-2 rounded-xl border border-line bg-base-100">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold marker:content-none">
+            Apache License, Version 2.0
+            <span className="ml-2 font-normal text-base-content/50 group-open:hidden">
+              show
+            </span>
+          </summary>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-line px-4 py-3 font-mono text-xs text-base-content/70">
+            {LICENSE}
+          </pre>
+        </details>
       </div>
     </GenericModal>
   );

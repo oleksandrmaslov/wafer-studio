@@ -4,14 +4,69 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="%BASE_URL%wafer-mark.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+
+    <title>Wafer Studio — keymap editor for ZMK Studio keyboards</title>
     <meta
       name="description"
-      content="Wafer Studio — a friendly configurator compatible with ZMK Studio-enabled keyboards."
+      content="Wafer Studio is a browser-based keymap editor for keyboards running ZMK Studio-enabled firmware. Edit layers, remap keys and save to your keyboard over USB or Bluetooth — no firmware rebuild, no install."
     />
-    <title>Wafer Studio</title>
+    <link rel="canonical" href="%SITE_URL%" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wafer Studio" />
+    <meta
+      property="og:title"
+      content="Wafer Studio — keymap editor for ZMK Studio keyboards"
+    />
+    <meta
+      property="og:description"
+      content="Edit layers, remap keys and save to your keyboard over USB or Bluetooth. No firmware rebuild, no install."
+    />
+    <meta property="og:url" content="%SITE_URL%" />
+    <meta property="og:image" content="%SITE_URL%wafer-mark.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Wafer Studio",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Web, Windows, macOS, Linux",
+        "description": "A browser-based keymap editor for keyboards running ZMK Studio-enabled firmware. Edit layers, remap keys and save changes to the keyboard over USB or Bluetooth.",
+        "url": "%SITE_URL%",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isBasedOn": "https://github.com/zmkfirmware/zmk-studio",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- React replaces this on mount. It exists so a crawler, a text browser,
+         or anything that fails to run the bundle still receives a description
+         of the page instead of an empty document. -->
+    <div id="root">
+      <main>
+        <h1>Wafer Studio</h1>
+        <p>
+          A keymap editor for keyboards running ZMK Studio-enabled firmware.
+          Connect over USB or Bluetooth, edit your layers, and save straight to
+          the keyboard — no firmware rebuild and nothing to install.
+        </p>
+        <p>
+          Wafer Studio runs in the browser. A
+          <a href="%BASE_URL%download.html">desktop build</a> is available for
+          Windows, macOS and Linux, and adds Bluetooth support on the platforms
+          where browsers do not expose it.
+        </p>
+        <p>
+          Wafer Studio is an independent redesign based on
+          <a href="https://github.com/zmkfirmware/zmk-studio">ZMK Studio</a> and
+          is not an official ZMK project.
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,3 +1,24 @@
+Wafer Studio
+Copyright 2026 Oleksandr Maslov
+
+Wafer Studio is an independent redesign based on ZMK Studio. It is not an
+official ZMK project and is not endorsed by the ZMK Project or by any of the
+companies that sponsored upstream ZMK Studio development.
+
+Source files derived from ZMK Studio carry a modification notice in their
+header. MODIFICATIONS.md lists what changed, including the files whose format
+does not allow comments.
+
+Wafer Studio is licensed under the Apache License, Version 2.0. You may obtain
+a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+---------------------------------------------------------------------------
+The following notice is reproduced from the upstream ZMK Studio project and is
+retained in accordance with section 4(d) of the Apache License, Version 2.0.
+---------------------------------------------------------------------------
+
 ZMK Studio
 Copyright 2024 The ZMK Contributors
 

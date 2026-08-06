@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 export interface SegmentedControlOption<T extends string> {
   id: T;
   label: string;

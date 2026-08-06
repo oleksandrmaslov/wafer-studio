@@ -1,3 +1,6 @@
+// Copyright 2026 Oleksandr Maslov
+// SPDX-License-Identifier: Apache-2.0
+
 import { createContext, useCallback, useContext, useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
 

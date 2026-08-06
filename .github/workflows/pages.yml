@@ -19,41 +19,53 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'oleksandrmaslov/wafer-zmk-studio'
+    # Guard on the owner, not the full repository name. A repository rename
+    # used to silently disable this whole workflow: the job condition still
+    # named the old repository, so every push simply skipped and the site went
+    # stale with no failure anywhere to notice.
+    if: github.repository_owner == 'oleksandrmaslov'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: read
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
+      # Project pages are served from /<repo>/, so the asset base has to match
+      # the repository name. Deriving it here rather than hard-coding it means
+      # the next rename moves the site instead of breaking every asset URL.
+      - name: Resolve Pages base path
+        id: base
+        run: echo "path=/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_OUTPUT"
+
       - name: Build for GitHub Pages
         env:
-          VITE_BASE_PATH: /wafer-zmk-studio/
+          VITE_BASE_PATH: ${{ steps.base.outputs.path }}
+          VITE_SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
         run: npm run build
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
-    if: github.repository == 'oleksandrmaslov/wafer-zmk-studio'
+    if: github.repository_owner == 'oleksandrmaslov'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -65,4 +77,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
