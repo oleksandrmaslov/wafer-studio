@@ -143,11 +143,13 @@ and redeploy the site.
 | [`DESIGN.md`](./DESIGN.md)                           | The visual system — surfaces, the dispersion scale, the accent |
 | [`UX.md`](./UX.md)                                   | Interaction research and the roadmap it came from              |
 | [`LAYOUTS.md`](./LAYOUTS.md)                         | What people actually build on these keyboards                  |
-| [`AGENTS.md`](./AGENTS.md)                           | Working memory: decisions, reversals, and the traps            |
 | [`PROTOCOL_PROVENANCE.md`](./PROTOCOL_PROVENANCE.md) | Pinned protocol versions                                       |
 
-`AGENTS.md` is the one to read before changing anything. It records why each
-decision was made and which of them have already been tried and reversed.
+`AGENTS.md` holds the working memory behind all of it — why each decision was
+made and which have already been tried and reversed — and a few code comments
+cite its sections. It is deliberately untracked, along with the rest of the
+agent tooling, so it lives only in a working copy. Ask a maintainer for it
+before changing anything load-bearing.
 
 ## Protocol and attribution
 

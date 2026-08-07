@@ -29,3 +29,34 @@ src/data
 
 # Superseded material effects, kept locally for reference only.
 /deprecated/
+
+# Coding-agent configuration and working files. These belong to whichever tool
+# a contributor happens to drive the repo with, not to the project: they carry
+# machine-local paths, hook commands and vendor-specific schemas, and a fresh
+# checkout is expected to build without any of them. Keep them on disk, out of
+# the history.
+.agents/
+.claude/
+.codex/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.aider*
+.continue/
+.gemini/
+.opencode/
+.roo/
+.roomodes
+.specstory/
+.mcp.json
+.github/copilot-instructions.md
+
+# Agent working notes: the log kept between sessions, under each tool's name.
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# Scratch space for agent-driven visual checks — a throwaway browser profile
+# and whatever screenshots a session captured.
+.tmp-visual-qa/
