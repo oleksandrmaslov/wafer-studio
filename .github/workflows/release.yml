@@ -101,6 +101,12 @@ jobs:
           - platform: "ubuntu-24.04"
             name: linux
             args: ""
+          # Linux has no universal bundle, so arm64 needs its own runner. Native
+          # rather than cross-compiled: the bundlers shell out to dpkg-deb,
+          # rpmbuild and appimagetool, none of which cross-build cleanly.
+          - platform: "ubuntu-24.04-arm"
+            name: linux-arm64
+            args: ""
           - platform: "windows-latest"
             name: windows
             args: ""
@@ -110,7 +116,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-24.04'
+        if: startsWith(matrix.platform, 'ubuntu-24.04')
         run: |
           sudo apt-get update
           sudo apt-get install -y libappindicator3-dev librsvg2-dev libudev-dev patchelf \
